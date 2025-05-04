@@ -10,11 +10,9 @@ jobs:
       matrix:
         repos:
           - baidunetdisk-bin
-          - dingtalk-bin
           - hysteria-bin
           - localsend-bin
           - mailspring-bin
-          - netease-cloud-music-gtk4
           - wechat-universal-bwrap
           - wemeet-bin
       fail-fast: false
