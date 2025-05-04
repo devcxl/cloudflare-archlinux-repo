@@ -11,7 +11,8 @@
   "author": "devcxl",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "deploy": "wrangler deploy index.js",
+    "dev": "wrangler dev index.js --remote"
   },
   "dependencies": {
     "wrangler": "^4.14.1"

@@ -1,6 +1,7 @@
 name = "archlinux-repo"
 
 workers_dev = true
+compatibility_date = "2025-05-04"
 
 main = "index.js"
 
