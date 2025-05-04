@@ -1,0 +1,23 @@
+name: Build Aur Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo-name:
+        description: "Aur仓库名"
+        required: true
+        default: "localsend-bin"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: build package
+        uses: DuckSoft/build-aur-action@master
+        with:
+          repo-name: ${{ github.event.inputs.repo-name }}
+      - name: upload package
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ github.event.inputs.repo-name }}
+          path: ./*.pkg.tar.zst

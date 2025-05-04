@@ -1,0 +1,12 @@
+name = "archlinux-repo"
+
+workers_dev = true
+
+main = "index.js"
+
+dev.host = "127.0.0.1"
+dev.port = 8012
+
+[[r2_buckets]]
+binding = "ARCH_REPO"
+bucket_name = "archlinux-repo"

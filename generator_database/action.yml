@@ -1,0 +1,15 @@
+name: 'Generator pacman package database'
+description: 'Generator pacman package database in Docker container'
+branding:
+  icon: user-check
+  color: gray-dark
+inputs:
+  repo-path:
+    description: 'AUR repository path'
+    required: true
+    default: './repo/'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.repo-path }}

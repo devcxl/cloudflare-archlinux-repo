@@ -1,0 +1,19 @@
+{
+  "name": "cloudflare-archlinux-repo",
+  "version": "1.0.0",
+  "description": "make you self archlinux repo in cloudflare worker",
+  "keywords": [
+    "cloudflare",
+    "archlinux",
+    "repo"
+  ],
+  "license": "MIT",
+  "author": "devcxl",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "wrangler": "^4.14.1"
+  }
+}
