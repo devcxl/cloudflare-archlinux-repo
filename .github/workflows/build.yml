@@ -13,9 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: build package
-        uses: DuckSoft/build-aur-action@master
+        uses: ./build-aur-action
         with:
-          repo-name: ${{ github.event.inputs.repo-name }}
+          repo: ${{ github.event.inputs.repo-name }}
       - name: upload package
         uses: actions/upload-artifact@v4
         with:

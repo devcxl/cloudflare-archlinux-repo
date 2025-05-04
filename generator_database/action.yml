@@ -4,12 +4,17 @@ branding:
   icon: user-check
   color: gray-dark
 inputs:
-  repo-path:
-    description: 'AUR repository path'
+  database:
+    description: 'AUR repository database name'
+    required: true
+    default: 'self'
+  path:
+    description: 'packages dir'
     required: true
     default: './repo/'
 runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
-    - ${{ inputs.repo-path }}
+    - ${{ inputs.database }}
+    - ${{ inputs.path }}

@@ -1,0 +1,20 @@
+name: '构建Aur包'
+description: '通过archlinux的docker镜像构建aur包'
+branding:
+  icon: user-check
+  color: gray-dark
+inputs:
+  repo:
+    description: 'AUR仓库名称'
+    required: true
+    default: 'localsend-bin'
+  packager:
+    description: '打包人信息'
+    required: true
+    default: 'Anyname'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.repo }}
+    - ${{ inputs.packager }}
