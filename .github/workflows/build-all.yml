@@ -2,25 +2,15 @@ name: Build all aur package
 
 on:
   schedule:
-    - cron: "1 */8 * * *"
-
+    - cron: "0 0 12 * *"
+  workflow_dispatch:
 jobs:
   build:
     strategy:
       matrix:
         repos:
-          - clash-verge-rev-bin
-          - baidunetdisk-bin
-          - dingtalk-bin
-          - feishu-bin
           - hysteria-bin
-          - intellij-idea-ultimate-edition
-          - linuxqq-nt-bwrap
           - localsend-bin
-          - mailspring-bin
-          - netease-cloud-music-gtk4
-          - wechat-universal-bwrap
-          - wemeet-bin
       fail-fast: false
 
     runs-on: ubuntu-latest
@@ -34,7 +24,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.repos }}
-          path: ./*.pkg.tar.zst
+          path: .${{ matrix.repos }}/*.pkg.tar.zst
 
   generate-repo:
     needs: build

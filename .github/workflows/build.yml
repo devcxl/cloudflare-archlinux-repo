@@ -1,4 +1,4 @@
-name: Build Aur Package
+name: Build aur package
 
 on:
   workflow_dispatch:
