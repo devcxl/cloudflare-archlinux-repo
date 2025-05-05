@@ -16,6 +16,10 @@ inputs:
     description: 'GPG private key'
     required: true
     default: ''
+  gpg-passphrase:
+    description: 'GPG password'
+    required: true
+    default: ''
 runs:
   using: 'docker'
   image: 'Dockerfile'
@@ -23,3 +27,4 @@ runs:
     DATABASE: ${{ inputs.database }}
     PACKAGE_PATH: ${{ inputs.path }}
     GPG_PRIVATE_KEY: ${{ inputs.gpg-private-key }}
+    GPG_PASSPHRASE: ${{ inputs.gpg-passphrase }}

@@ -53,6 +53,7 @@ jobs:
           database: self
           path: ./repo
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - uses: shallwefootball/s3-upload-action@master
         with:
