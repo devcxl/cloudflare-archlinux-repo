@@ -1,4 +1,11 @@
 #!/bin/bash
-cd $2
-repo-add $1.db.tar.zst *.pkg.tar.zst
-ls -lh
+
+echo "$GPG_PRIVATE_KEY" | gpg --import
+
+cd $PACKAGE_PATH
+
+packages=("*.pkg.tar.zst")
+for name in $packages; do
+    gpg --detach-sig --yes $name
+done
+repo-add --verify --sign "$DATABASE.db.tar.gz" *.pkg.tar.zst

@@ -12,9 +12,14 @@ inputs:
     description: 'packages dir'
     required: true
     default: './repo/'
+  gpg-private-key:
+    description: 'GPG private key'
+    required: true
+    default: ''
 runs:
   using: 'docker'
   image: 'Dockerfile'
-  args:
-    - ${{ inputs.database }}
-    - ${{ inputs.path }}
+  env:
+    DATABASE: ${{ inputs.database }}
+    PACKAGE_PATH: ${{ inputs.path }}
+    GPG_PRIVATE_KEY: ${{ inputs.gpg-private-key }}
