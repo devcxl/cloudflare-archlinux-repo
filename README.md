@@ -1,4 +1,6 @@
+# 信任公钥
 
+`sudo curl -sL https://repo.archlinux.devcxl.cn/self.gpg | sudo pacman-key --add - && sudo pacman-key --lsign-key C185EFFBD7587B346642F06A9AC873FEDCC2792A`
 
 
 # 参考文档
