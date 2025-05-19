@@ -2,7 +2,7 @@ name: Build all aur package
 
 on:
   schedule:
-    - cron: "0 0 12 * *"
+    - cron: "0 0 */5 * *"
   workflow_dispatch:
 jobs:
   build:
@@ -12,7 +12,7 @@ jobs:
           - baidunetdisk-bin
           - hysteria-bin
           - localsend-bin
-          - mailspring-bin
+          - mailspring
           - wechat-universal-bwrap
           - wemeet-bin
       fail-fast: false
