@@ -10,6 +10,7 @@ jobs:
       matrix:
         repos:
           - baidunetdisk-bin
+          - dingtalk-bin
           - hysteria-bin
           - localsend-bin
           - mailspring
