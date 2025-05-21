@@ -16,6 +16,7 @@ jobs:
           - mailspring
           - wechat-universal-bwrap
           - wemeet-bin
+          - intellij-idea-ultimate-edition
       fail-fast: false
 
     runs-on: ubuntu-latest
