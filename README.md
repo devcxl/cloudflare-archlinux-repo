@@ -72,13 +72,20 @@ ssb   rsa4096 2025-05-26 [E] [有效至：2030-05-25]
 ## 导出私钥
 
 ```
-[devcxl@ms7b89 ~]$ gpg --armor --export-secret-keys example@devcxl.cn > example-private-key.asc
-[devcxl@ms7b89 ~]$ cat example-private-key.asc 
+[devcxl@air14 ~]$ gpg --armor --export-secret-keys example@devcxl.cn > example-private-key.asc
+[devcxl@air14 ~]$ cat example-private-key.asc 
 -----BEGIN PGP PRIVATE KEY BLOCK-----
 // 中间省略
 -----END PGP PRIVATE KEY BLOCK-----
 ```
+## 导出公钥
+```
+gpg --armor  --export D12A6ED8CDA1B38C3AD03D48ECBFD0BD2666278B > self.gpg
+```
 
+## 将公钥上传到Cloudflare R2存储桶
+
+`npx wrangler r2 object put <bucketname>/self.gpg --file=/path/to/self.gpg`
 
 ##  信任公钥
 
