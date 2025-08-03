@@ -14,6 +14,7 @@ jobs:
           - hysteria-bin
           - localsend-bin
           - mailspring
+          - visual-studio-code-bin
           - wechat-universal-bwrap
           - wemeet-bin
           - intellij-idea-ultimate-edition
