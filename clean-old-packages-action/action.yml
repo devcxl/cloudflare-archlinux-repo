@@ -1,0 +1,39 @@
+name: 'Clean Old Package Versions'
+description: 'Clean old versions of Arch Linux packages from R2 storage'
+inputs:
+  aws-bucket:
+    description: 'R2 bucket name'
+    required: true
+  aws-access-key-id:
+    description: 'R2 access key ID'
+    required: true
+  aws-secret-access-key:
+    description: 'R2 secret access key'
+    required: true
+  aws-endpoint:
+    description: 'R2 S3-compatible endpoint URL'
+    required: true
+  max-deletions:
+    description: 'Maximum number of packages to delete per run (default: 50)'
+    required: false
+    default: '50'
+  dry-run:
+    description: 'Dry run mode - only show what would be deleted (default: false)'
+    required: false
+    default: 'false'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install boto3
+      run: pip install boto3
+      shell: bash
+    - name: Clean old package versions
+      run: python ${{ github.action_path }}/clean_old_packages.py
+      shell: bash
+      env:
+        AWS_S3_BUCKET: ${{ inputs.aws-bucket }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
+        AWS_S3_ENDPOINT: ${{ inputs.aws-endpoint }}
+        MAX_DELETIONS: ${{ inputs.max-deletions }}
+        DRY_RUN: ${{ inputs.dry-run }}
