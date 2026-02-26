@@ -34,6 +34,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
           skip-package: ${{ github.event.inputs.repo-name }}
+        continue-on-error: true  # 允许下载步骤失败，例如桶不存在或为空
 
       - name: Move new package into repo folder
         run: |
@@ -47,6 +48,16 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
           database-name: self
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+        continue-on-error: true  # 允许清理步骤失败，例如桶不存在或为空
+
+      - name: Generate pacman repo database if not exists
+        if: always()  # 无论前面步骤是否失败，都尝试生成数据库
+        uses: ./.github/generator_database
+        with:
+          database: self
+          path: ./repo
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 

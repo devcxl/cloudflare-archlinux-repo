@@ -186,48 +186,52 @@ def get_latest_versions(client, bucket, prefix='repo/'):
     latest_versions = {}
     all_packages = []
 
-    # List all objects in the bucket with the prefix
-    paginator = client.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+    try:
+        # List all objects in the bucket with the prefix
+        paginator = client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
 
-    for page in pages:
-        if 'Contents' not in page:
-            continue
-
-        for obj in page['Contents']:
-            key = obj['Key']
-            # Get just the filename (remove prefix)
-            filename = key[len(prefix):]
-
-            # Skip directories and signature files
-            if filename.endswith('/') or filename.endswith('.sig'):
+        for page in pages:
+            if 'Contents' not in page:
                 continue
 
-            # Parse package filename
-            parsed = parse_package_filename(filename)
-            if parsed is None:
-                continue
+            for obj in page['Contents']:
+                key = obj['Key']
+                # Get just the filename (remove prefix)
+                filename = key[len(prefix):]
 
-            name, version, arch = parsed
-            all_packages.append({
-                'name': name,
-                'version': version,
-                'arch': arch,
-                'key': key
-            })
+                # Skip directories and signature files
+                if filename.endswith('/') or filename.endswith('.sig'):
+                    continue
 
-    # Group by package name and find latest version
-    for pkg in all_packages:
-        name = pkg['name']
-        version = pkg['version']
+                # Parse package filename
+                parsed = parse_package_filename(filename)
+                if parsed is None:
+                    continue
 
-        if name not in latest_versions:
-            latest_versions[name] = pkg
-        else:
-            # Compare versions
-            cmp = compare_versions(version, latest_versions[name]['version'])
-            if cmp > 0:
+                name, version, arch = parsed
+                all_packages.append({
+                    'name': name,
+                    'version': version,
+                    'arch': arch,
+                    'key': key
+                })
+
+        # Group by package name and find latest version
+        for pkg in all_packages:
+            name = pkg['name']
+            version = pkg['version']
+
+            if name not in latest_versions:
                 latest_versions[name] = pkg
+            else:
+                # Compare versions
+                cmp = compare_versions(version, latest_versions[name]['version'])
+                if cmp > 0:
+                    latest_versions[name] = pkg
+
+    except Exception as e:
+        print(f"Warning: Error listing objects in bucket: {e}")
 
     return latest_versions, all_packages
 
@@ -347,7 +351,7 @@ def main():
     latest_versions, all_packages = get_latest_versions(client, bucket)
 
     if not latest_versions:
-        print("No packages found in bucket.")
+        print("No packages found in bucket. Nothing to clean.")
         return
 
     print(f"Found {len(latest_versions)} unique packages:")
@@ -455,7 +459,66 @@ def main():
                 except Exception as e:
                     print(f"  Error: Failed to run repo-remove: {e}", file=sys.stderr)
             else:
-                print("  Warning: Database file not found, skipping database update")
+                print("  Warning: Database file not found")
+
+                # 如果是初次运行或数据库文件损坏，尝试重新下载所有包并生成新的数据库
+                print("\n  Attempting to regenerate database from scratch...")
+
+                try:
+                    # 下载所有现有的包文件到临时目录
+                    print("  Downloading all package files...")
+                    for pkg in latest_versions.values():
+                        filename = os.path.basename(pkg['key'])
+                        local_path = os.path.join(db_dir, filename)
+                        try:
+                            client.download_file(bucket, pkg['key'], local_path)
+                            print(f"  Downloaded: {filename}")
+
+                            # 同时下载签名文件
+                            sig_key = pkg['key'] + '.sig'
+                            sig_path = os.path.join(db_dir, filename + '.sig')
+                            try:
+                                client.download_file(bucket, sig_key, sig_path)
+                                print(f"  Downloaded: {filename}.sig")
+                            except Exception as e:
+                                print(f"  Warning: Failed to download signature for {filename}: {e}")
+                        except Exception as e:
+                            print(f"  Error: Failed to download {filename}: {e}")
+                            continue
+
+                    # 使用 repo-add 生成新的数据库
+                    db_file = f"{database_name}.db.tar.gz"
+                    cmd = ['repo-add', '--verify', '--sign' if (gpg_private_key and gpg_passphrase) else '',
+                           db_file] + [f for f in os.listdir(db_dir) if f.endswith('.pkg.tar.zst')]
+                    cmd = list(filter(None, cmd))  # 过滤掉空字符串
+
+                    print(f"  Running command: {' '.join(cmd)}")
+
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        cwd=db_dir
+                    )
+
+                    if result.returncode == 0:
+                        print("  Success: Generated new database")
+
+                        # 如果没有自动签名（例如，使用了 --sign 但没有配置 GPG），尝试手动签名
+                        if gpg_private_key and gpg_passphrase:
+                            print("\n  Signing database...")
+                            sign_database(db_dir, database_name, gpg_private_key, gpg_passphrase)
+
+                        # 上传新的数据库文件
+                        print("\n  Uploading new database...")
+                        upload_database(client, bucket, db_dir, database_name)
+                    else:
+                        print(f"  Error: repo-add failed with exit code {result.returncode}", file=sys.stderr)
+                        print(f"  stdout: {result.stdout}", file=sys.stderr)
+                        print(f"  stderr: {result.stderr}", file=sys.stderr)
+
+                except Exception as e:
+                    print(f"  Error: Failed to regenerate database: {e}", file=sys.stderr)
 
     if not dry_run:
         print(f"\nDeleted {len(deleted)} files.")

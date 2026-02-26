@@ -73,10 +73,12 @@ def main():
         paginator = client.get_paginator('list_objects_v2')
         pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
 
+        has_contents = False
         for page in pages:
             if 'Contents' not in page:
                 continue
 
+            has_contents = True
             for obj in page['Contents']:
                 key = obj['Key']
                 filename = key[len(prefix):]
@@ -122,8 +124,12 @@ def main():
                     failed_count += 1
                     print(f"  ❌ Failed to download after 3 attempts")
 
+        if not has_contents:
+            print("  No objects found in bucket. This is expected if it's the first build.")
+
     except Exception as e:
         print(f"Error accessing R2 bucket: {e}", file=sys.stderr)
+        print("  This could be because the bucket doesn't exist yet or is empty.")
 
     # Summary
     print()
