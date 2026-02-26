@@ -92,6 +92,59 @@ gpg --armor  --export D12A6ED8CDA1B38C3AD03D48ECBFD0BD2666278B > self.gpg
 `sudo curl -sL https://repo.archlinux.devcxl.cn/self.gpg | sudo pacman-key --add - && sudo pacman-key --lsign-key C185EFFBD7587B346642F06A9AC873FEDCC2792A`
 
 
+## Using the Repository
+
+### 1. Add Repository to pacman.conf
+
+Edit `/etc/pacman.conf` and add the repository configuration:
+
+```
+[cloudflare-repo]
+Server = https://your-worker-domain.workers.dev/$repo
+SigLevel = Required
+```
+
+Replace `your-worker-domain.workers.dev` with your actual Cloudflare Worker URL.
+
+### 2. Update Package Database
+
+```bash
+sudo pacman -Sy
+```
+
+### 3. Install Packages
+
+To install a package from the repository:
+
+```bash
+sudo pacman -S localsend-bin
+```
+
+Replace `localsend-bin` with the package name you want to install.
+
+### 4. Upgrade Packages
+
+To update all packages from this repository:
+
+```bash
+sudo pacman -Syu
+```
+
+### 5. List Available Packages
+
+To list all packages in the repository:
+
+```bash
+sudo pacman -Sl cloudflare-repo
+```
+
+### Troubleshooting
+
+- If you get signature errors, verify the GPG key is trusted with `pacman-key -l`
+- If packages aren't found, check that the repository URL is correct
+- Ensure the Worker is deployed and accessible
+
+
 ## 参考文档
 - https://viflythink.com/Use_GitHubActions_to_build_AUR/
 - https://github.com/DuckSoft/build-aur-action
