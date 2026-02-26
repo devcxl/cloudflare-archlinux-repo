@@ -141,17 +141,34 @@ def parse_package_filename(filename):
     if not filename.endswith('.pkg.tar.zst'):
         return None
 
-    # Remove extension and split into parts
+    # Remove extension and parse filename
     base = filename[:-len('.pkg.tar.zst')]
-    parts = base.rsplit('-', 2)
 
-    if len(parts) != 3:
+    # 查找架构部分（x86_64, i686, armv7h, aarch64 等）
+    arch_match = re.search(r'-(x86_64|i686|armv7h|aarch64)$', base)
+    if not arch_match:
         return None
 
-    name, version, arch = parts
+    arch = arch_match.group(1)
+    # 从 base 中移除 arch 部分
+    base = base[:arch_match.start()]
+
+    # 查找版本部分（版本格式通常包含数字、点和可能的连字符或其他字符）
+    # 版本通常以数字开头，但可能包含字母字符（如 rc, beta 等）
+    version_match = re.search(r'-\d+(\.\d+)*', base)
+    if not version_match:
+        return None
+
+    version_start = version_match.start() + 1
+    version = base[version_start:]
+    name = base[:version_match.start()]
 
     # Validate package name (whitelist)
     if not re.match(r'^[a-zA-Z0-9@._+-]+$', name):
+        return None
+
+    # Validate arch
+    if not re.match(r'^[a-zA-Z0-9_]+$', arch):
         return None
 
     return (name, version, arch)
