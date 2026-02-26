@@ -1,0 +1,38 @@
+name: 'Check AUR Updates'
+description: 'Check for AUR package updates and trigger build workflows'
+inputs:
+  packages:
+    description: 'Space-separated list of AUR packages to check'
+    required: true
+  aws-bucket:
+    description: 'R2 bucket name'
+    required: true
+  aws-access-key-id:
+    description: 'R2 access key ID'
+    required: true
+  aws-secret-access-key:
+    description: 'R2 secret access key'
+    required: true
+  aws-endpoint:
+    description: 'R2 S3-compatible endpoint URL'
+    required: true
+  gh-repository:
+    description: 'GitHub repository path (owner/repo)'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      run: pip install boto3 requests
+      shell: bash
+    - name: Check for AUR updates
+      run: python ${{ github.action_path }}/check_aur_updates.py
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        AWS_S3_BUCKET: ${{ inputs.aws-bucket }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
+        AWS_S3_ENDPOINT: ${{ inputs.aws-endpoint }}
+        GH_TOKEN: ${{ github.token }}
+        GH_REPOSITORY: ${{ inputs.gh-repository }}

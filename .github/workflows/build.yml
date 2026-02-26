@@ -12,12 +12,47 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: build package
-        uses: ./build-aur-action
+      - uses: actions/checkout@v4
+
+      - name: Build package
+        uses: ./.github/build-aur-action
         with:
           repo: ${{ github.event.inputs.repo-name }}
-      - name: upload package
+          packager: ${{ secrets.PACKAGER_NAME }}
+
+      - name: Cache package
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.inputs.repo-name }}
           path: ./${{ github.event.inputs.repo-name }}/*.pkg.tar.zst
+
+      - name: Download existing packages from R2
+        uses: ./.github/download-r2-action
+        with:
+          aws-bucket: ${{ secrets.AWS_BUCKET }}
+          aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
+          skip-package: ${{ github.event.inputs.repo-name }}
+
+      - name: Move new package into repo folder
+        run: |
+          find ./${{ github.event.inputs.repo-name }} -name '*.pkg.tar.zst' -exec cp {} ./repo/ \;
+
+      - name: Generate pacman repo database
+        uses: ./generator_database
+        with:
+          database: self
+          path: ./repo
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Upload to R2
+        uses: shallwefootball/s3-upload-action@master
+        with:
+          endpoint: ${{ secrets.AWS_ENDPOINT }}
+          aws_key_id: ${{ secrets.AWS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+          aws_bucket: ${{ secrets.AWS_BUCKET }}
+          source_dir: ./repo
+          destination_dir: repo/

@@ -1,0 +1,39 @@
+name: 'Download from R2'
+description: 'Download packages and database from R2 storage'
+inputs:
+  aws-bucket:
+    description: 'R2 bucket name'
+    required: true
+  aws-access-key-id:
+    description: 'R2 access key ID'
+    required: true
+  aws-secret-access-key:
+    description: 'R2 secret access key'
+    required: true
+  aws-endpoint:
+    description: 'R2 S3-compatible endpoint URL'
+    required: true
+  skip-package:
+    description: 'Package name to skip (optional)'
+    required: false
+    default: ''
+  destination:
+    description: 'Destination directory (default: repo)'
+    required: false
+    default: 'repo'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      run: pip install boto3
+      shell: bash
+    - name: Download from R2
+      run: python ${{ github.action_path }}/download_r2.py
+      shell: bash
+      env:
+        AWS_S3_BUCKET: ${{ inputs.aws-bucket }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
+        AWS_S3_ENDPOINT: ${{ inputs.aws-endpoint }}
+        SKIP_PACKAGE: ${{ inputs.skip-package }}
+        DESTINATION: ${{ inputs.destination }}

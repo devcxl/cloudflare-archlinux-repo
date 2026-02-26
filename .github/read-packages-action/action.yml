@@ -1,0 +1,26 @@
+name: 'Read Packages List'
+description: 'Read packages list from YAML file'
+inputs:
+  config-file:
+    description: 'Path to packages YAML file'
+    required: false
+    default: '.github/packages.yml'
+outputs:
+  packages:
+    description: 'Space-separated list of packages'
+    value: ${{ steps.read-packages.outputs.packages }}
+  packages-json:
+    description: 'JSON list of packages'
+    value: ${{ steps.read-packages.outputs.packages-json }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      run: pip install pyyaml
+      shell: bash
+    - name: Read packages from YAML
+      id: read-packages
+      run: python ${{ github.action_path }}/read_packages.py
+      shell: bash
+      env:
+        CONFIG_FILE: ${{ inputs.config-file }}

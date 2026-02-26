@@ -1,0 +1,29 @@
+name: Check AUR Updates
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"  # Every 3 hours
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read packages list
+        id: read-packages
+        uses: ./.github/read-packages-action
+
+      - uses: ./.github/check-aur-updates-action
+        with:
+          packages: ${{ steps.read-packages.outputs.packages }}
+          aws-bucket: ${{ secrets.AWS_BUCKET }}
+          aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
+          gh-repository: ${{ github.repository }}

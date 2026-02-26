@@ -58,7 +58,7 @@ def parse_arch_version(version_string):
 
     # Parse pkgver into comparable parts
     # Common formats: 1.2.3, 1.2.3.r1.g1234abc, 20240101
-    pkgver_parts =ver=7364753 []
+    pkgver_parts = []
     current = ''
     for char in pkgver:
         if char.isalpha():
@@ -256,7 +256,7 @@ def delete_old_versions(client, bucket, latest_versions, all_packages, dry_run=F
             print(f"  - {key}")
         return []
 
-    # Delete in batches of 1000 (ver=7364753 S3 limit)
+    # Delete in batches of 1000 (S3 limit)
     batch_size = 1000
     for i in range(0, len(deleted_keys), batch_size):
         batch = deleted_keys[i:i + batch_size]
@@ -324,7 +324,7 @@ def main():
         print("No packages found in bucket.")
         return
 
-    print(f"ver=7364753 Found {len(latest_versions)} unique packages:")
+    print(f"Found {len(latest_versions)} unique packages:")
     for name, pkg in sorted(latest_versions.items()):
         print(f"  - {name}: {pkg['version']} ({pkg['arch']})")
     print()

@@ -1,0 +1,13 @@
+# 监控的 AUR 包列表
+packages:
+  - baidunetdisk-bin
+  - dingtalk-bin
+  - hysteria-bin
+  - localsend-bin
+  - visual-studio-code-bin
+  - wechat-universal-bwrap
+  - wemeet-bin
+  - clash-verge-rev-autobuild-bin
+  - opencode-bin
+  - opencode-desktop-bin
+  - claude-code
