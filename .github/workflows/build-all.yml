@@ -16,10 +16,10 @@ jobs:
           - visual-studio-code-bin
           - wechat-universal-bwrap
           - wemeet-bin
-          - clash-verge-rev-autobuild-bin
           - opencode-bin
           - opencode-desktop-bin
           - claude-code
+          # - clash-verge-rev-autobuild-bin
           # - intellij-idea-ultimate-edition
           # - mailspring
 
