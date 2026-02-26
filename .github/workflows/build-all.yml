@@ -10,7 +10,6 @@ jobs:
       matrix:
         repos:
           - baidunetdisk-bin
-          - dingtalk-bin
           - hysteria-bin
           - localsend-bin
           - visual-studio-code-bin
@@ -19,6 +18,7 @@ jobs:
           - opencode-bin
           - opencode-desktop-bin
           - claude-code
+          # - dingtalk-bin
           # - clash-verge-rev-autobuild-bin
           # - intellij-idea-ultimate-edition
           # - mailspring
