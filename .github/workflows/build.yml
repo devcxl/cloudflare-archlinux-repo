@@ -40,7 +40,7 @@ jobs:
           find ./${{ github.event.inputs.repo-name }} -name '*.pkg.tar.zst' -exec cp {} ./repo/ \;
 
       - name: Generate pacman repo database
-        uses: ./generator_database
+        uses: ./.github/generator_database
         with:
           database: self
           path: ./repo
