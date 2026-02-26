@@ -81,13 +81,23 @@ def main():
                 key = obj['Key']
                 filename = key[len(prefix):]
 
-                # Skip directories
+                # Skip directories and packages
                 if not filename or filename.endswith('/'):
                     continue
 
                 # Skip packages matching skip_package
                 if skip_package and filename.startswith(skip_package + '-'):
                     print(f"  Skipping: {filename}")
+                    skipped_count += 1
+                    continue
+
+                # 只下载数据库文件，不下载包文件
+                # 需要下载的文件：self.db.tar.gz, self.db.tar.gz.sig, self.files.tar.gz, self.files.tar.gz.sig
+                if not (filename.endswith('.db.tar.gz') or
+                        filename.endswith('.db.tar.gz.sig') or
+                        filename.endswith('.files.tar.gz') or
+                        filename.endswith('.files.tar.gz.sig')):
+                    print(f"  Skipping package file: {filename}")
                     skipped_count += 1
                     continue
 
