@@ -39,21 +39,16 @@ jobs:
         run: |
           find ./${{ github.event.inputs.repo-name }} -name '*.pkg.tar.zst' -exec cp {} ./repo/ \;
 
-      - name: Generate pacman repo database
-        uses: ./.github/generator_database
-        with:
-          database: self
-          path: ./repo
-          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
-
-      - name: Clean old package versions
+      - name: Clean old package versions and update database
         uses: ./.github/clean-old-packages-action
         with:
           aws-bucket: ${{ secrets.AWS_BUCKET }}
           aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
+          database-name: self
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Upload to R2
         uses: shallwefootball/s3-upload-action@master

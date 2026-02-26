@@ -21,6 +21,18 @@ inputs:
     description: 'Dry run mode - only show what would be deleted (default: false)'
     required: false
     default: 'false'
+  database-name:
+    description: 'Pacman repository database name (default: self)'
+    required: false
+    default: 'self'
+  gpg-private-key:
+    description: 'GPG private key for signing the database'
+    required: false
+    default: ''
+  gpg-passphrase:
+    description: 'GPG passphrase for signing the database'
+    required: false
+    default: ''
 runs:
   using: 'composite'
   steps:
@@ -37,3 +49,6 @@ runs:
         AWS_S3_ENDPOINT: ${{ inputs.aws-endpoint }}
         MAX_DELETIONS: ${{ inputs.max-deletions }}
         DRY_RUN: ${{ inputs.dry-run }}
+        DATABASE_NAME: ${{ inputs.database-name }}
+        GPG_PRIVATE_KEY: ${{ inputs.gpg-private-key }}
+        GPG_PASSPHRASE: ${{ inputs.gpg-passphrase }}
