@@ -200,7 +200,7 @@ def get_aur_versions(packages):
         response.raise_for_status()
         data = response.json()
 
-        if data.get('type') == 'info' and 'results' in data:
+        if (data.get('type') == 'info' or data.get('type') == 'multiinfo') and 'results' in data:
             for result in data['results']:
                 pkg_name = result.get('Name')
                 pkg_version = result.get('Version')
