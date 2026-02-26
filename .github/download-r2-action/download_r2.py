@@ -16,8 +16,10 @@ Environment Variables Required:
 
 import os
 import sys
+import time
 
 import boto3
+from botocore.config import Config
 
 
 def main():
@@ -43,55 +45,88 @@ def main():
     # Create destination directory
     os.makedirs(destination, exist_ok=True)
 
-    # Connect to R2
+    # Connect to R2 with retries and timeouts
+    config = Config(
+        retries={
+            'max_attempts': 3,
+            'mode': 'standard'
+        },
+        connect_timeout=10,
+        read_timeout=30
+    )
+
     client = boto3.client(
         's3',
         aws_access_key_id=access_key_id,
         aws_secret_access_key=secret_access_key,
-        endpoint_url=endpoint
+        endpoint_url=endpoint,
+        config=config
     )
 
     # List and download objects
     prefix = 'repo/'
     downloaded_count = 0
     skipped_count = 0
+    failed_count = 0
 
-    paginator = client.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+    try:
+        paginator = client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
 
-    for page in pages:
-        if 'Contents' not in page:
-            continue
-
-        for obj in page['Contents']:
-            key = obj['Key']
-            filename = key[len(prefix):]
-
-            # Skip directories
-            if not filename or filename.endswith('/'):
+        for page in pages:
+            if 'Contents' not in page:
                 continue
 
-            # Skip packages matching skip_package
-            if skip_package and filename.startswith(skip_package + '-'):
-                print(f"  Skipping: {filename}")
-                skipped_count += 1
-                continue
+            for obj in page['Contents']:
+                key = obj['Key']
+                filename = key[len(prefix):]
 
-            # Download the file
-            dest_path = os.path.join(destination, filename)
-            print(f"  Downloading: {filename}")
+                # Skip directories
+                if not filename or filename.endswith('/'):
+                    continue
 
-            try:
-                client.download_file(bucket, key, dest_path)
-                downloaded_count += 1
-            except Exception as e:
-                print(f"  Error downloading {filename}: {e}", file=sys.stderr)
+                # Skip packages matching skip_package
+                if skip_package and filename.startswith(skip_package + '-'):
+                    print(f"  Skipping: {filename}")
+                    skipped_count += 1
+                    continue
+
+                # Download the file with retries
+                dest_path = os.path.join(destination, filename)
+                print(f"  Downloading: {filename}")
+
+                success = False
+                for attempt in range(3):
+                    try:
+                        client.download_file(bucket, key, dest_path)
+                        downloaded_count += 1
+                        success = True
+                        print(f"  ✓ Downloaded successfully (attempt {attempt + 1})")
+                        break
+                    except Exception as e:
+                        print(f"  Error downloading {filename} (attempt {attempt + 1}): {e}", file=sys.stderr)
+                        if attempt < 2:
+                            time.sleep(2)
+
+                if not success:
+                    failed_count += 1
+                    print(f"  ❌ Failed to download after 3 attempts")
+
+    except Exception as e:
+        print(f"Error accessing R2 bucket: {e}", file=sys.stderr)
 
     # Summary
     print()
-    print(f"Download complete: {downloaded_count} files downloaded")
+    print(f"Download complete:")
+    print(f"  - Successfully downloaded: {downloaded_count}")
     if skipped_count:
-        print(f"Skipped: {skipped_count} files")
+        print(f"  - Skipped: {skipped_count}")
+    if failed_count:
+        print(f"  - Failed: {failed_count}")
+
+    # Continue execution even if there were failures
+    if failed_count > 0:
+        print(f"\nWarning: Some files failed to download, but the process continues.", file=sys.stderr)
 
 
 if __name__ == '__main__':

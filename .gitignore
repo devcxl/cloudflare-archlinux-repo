@@ -1,3 +1,30 @@
 .sisyphus
 node_modules
 package-lock.json
+
+# Build artifacts
+*.pkg.tar.zst
+*.pkg.tar.zst.sig
+repo/
+packages/
+*.pyc
+__pycache__/
+*.pyo
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
