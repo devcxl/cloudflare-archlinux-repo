@@ -3,6 +3,7 @@ packages:
   - visual-studio-code-bin
   - opencode-desktop-bin
   - claude-code
+  - openai-codex-bin
   - hysteria-bin
   - localsend-bin
   # - clash-verge-rev-autobuild-bin
