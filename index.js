@@ -1,7 +1,17 @@
+const PACKAGE_ARTIFACT_PATTERN = /\.pkg\.tar\.zst(?:\.sig)?$/
+
+function isPackageArtifact(pathname) {
+  return PACKAGE_ARTIFACT_PATTERN.test(pathname)
+}
+
 export default {
   async fetch(request, env) {
     const key = decodeURIComponent(new URL(request.url).pathname.slice(1));
-    const object = await env.ARCH_REPO.get(key);
+    let object = await env.ARCH_REPO.get(key);
+
+    if (!object && isPackageArtifact(key) && !key.startsWith('packages/')) {
+      object = await env.ARCH_REPO.get(`packages/${key}`);
+    }
 
     if (!object) {
       return new Response("Not found", { status: 404 });

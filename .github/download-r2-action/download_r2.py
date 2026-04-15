@@ -2,8 +2,8 @@
 """
 Download latest package files from Cloudflare R2.
 
-This script scans the bucket root, keeps only the latest version for each
-package, and downloads those package files into the local repository
+This script scans the packages/ prefix in the bucket, keeps only the latest
+version for each package, and downloads those package files into the local repository
 directory. The current package being rebuilt can be skipped with SKIP_PACKAGE.
 """
 
@@ -14,6 +14,9 @@ import time
 
 import boto3
 from botocore.config import Config
+
+
+PACKAGE_PREFIX = 'packages/'
 
 
 def parse_arch_version(version_string):
@@ -125,7 +128,7 @@ def parse_package_filename(filename):
     return name, version, arch
 
 
-def get_latest_packages(client, bucket, prefix=''):
+def get_latest_packages(client, bucket, prefix=PACKAGE_PREFIX):
     """Return latest package file for each package/arch pair."""
     latest_packages = {}
 
@@ -199,13 +202,13 @@ def main():
     )
 
     try:
-        latest_packages = get_latest_packages(client, bucket, prefix='')
+        latest_packages = get_latest_packages(client, bucket, prefix=PACKAGE_PREFIX)
     except Exception as exc:
         print(f'Error accessing R2 bucket: {exc}', file=sys.stderr)
         sys.exit(1)
 
     if not latest_packages:
-        print('No package files found in bucket root. This may be expected on first build.')
+        print('No package files found in R2 packages/ directory. This may be expected on first build.')
         return
 
     downloaded_count = 0

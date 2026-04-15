@@ -87,9 +87,45 @@ gpg --armor  --export D12A6ED8CDA1B38C3AD03D48ECBFD0BD2666278B > devcxl.gpg
 
 `npx wrangler r2 object put <bucketname>/devcxl.gpg --file=/path/to/devcxl.gpg`
 
-##  信任公钥
+## 在 Arch Linux 客户端导入并信任公钥
 
-`sudo curl -sL https://repo.archlinux.devcxl.cn/devcxl.gpg | sudo pacman-key --add - && sudo pacman-key --lsign-key <your-key-id>`
+建议按下面的顺序操作：先下载公钥、核对指纹，再导入 pacman keyring 并进行本地签名。
+
+### 1. 下载公钥
+
+```bash
+curl -fsSL https://repo.archlinux.devcxl.cn/devcxl.gpg -o /tmp/devcxl.gpg
+```
+
+### 2. 查看并核对公钥指纹
+
+```bash
+gpg --show-keys --fingerprint /tmp/devcxl.gpg
+```
+
+请确认输出的指纹与你实际发布的仓库公钥一致。
+
+### 3. 导入到 pacman keyring
+
+```bash
+sudo pacman-key --add /tmp/devcxl.gpg
+```
+
+### 4. 本地签名并信任该公钥
+
+将下面命令中的 `<your-key-id>` 替换为上一步确认过的完整指纹或 Key ID：
+
+```bash
+sudo pacman-key --lsign-key <your-key-id>
+```
+
+### 5. 刷新仓库数据库
+
+```bash
+sudo pacman -Syy
+```
+
+如果你使用的仍然是之前已经导入并本地签名过的同一把密钥，通常无需重复信任，只需要确保客户端使用的是新的公钥下载地址 `devcxl.gpg`。
 
 
 ## Using the Repository
@@ -106,14 +142,14 @@ SigLevel = Required
 
 Replace `your-worker-domain.workers.dev` with your actual Cloudflare Worker URL.
 
-仓库数据库、包文件和公钥都直接发布在存储桶根路径，不再使用 `repo/` 前缀。
+仓库数据库和 `devcxl.gpg` 发布在存储桶根路径，所有包文件发布在 `packages/` 目录下。Worker 会把根路径包请求自动转发到 `packages/`，所以客户端配置仍然保持不变。
 
 ### 迁移已有部署
 
 如果你之前已经把仓库文件发布在 `repo/` 前缀下，切换到当前版本前请先完成其中一种迁移方式：
 
-1. 将 `repo/` 下的现有包文件和数据库文件迁移到存储桶根路径；
-2. 或者按 `.github/packages.yml` 中的包列表重新触发完整构建，重新在根路径生成 `devcxl.db*` 和所有包文件。
+1. 将 `repo/` 下的包文件迁移到 `packages/`，并将数据库文件迁移到存储桶根路径；
+2. 或者按 `.github/packages.yml` 中的包列表重新触发完整构建，重新生成根路径下的 `devcxl.db*` 与 `devcxl.files*`，以及 `packages/` 下的所有包文件。
 
 迁移完成后，再把客户端配置切换到 `[devcxl]`。
 

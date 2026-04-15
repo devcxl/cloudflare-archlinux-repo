@@ -1,5 +1,5 @@
 name: 'Clean Old Package Versions'
-description: 'Clean old versions of Arch Linux packages from R2 storage'
+description: 'Clean old versions of Arch Linux packages from R2 packages/ directory'
 inputs:
   aws-bucket:
     description: 'R2 bucket name'

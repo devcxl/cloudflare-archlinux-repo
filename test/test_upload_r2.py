@@ -42,7 +42,7 @@ class UploadR2Tests(unittest.TestCase):
         self.assertIn((str(target_path), 'devcxl.db.tar.gz'), files)
         self.assertIn((str(target_path), 'devcxl.db'), files)
 
-    def test_main_should_upload_to_bucket_root(self):
+    def test_main_should_upload_gpg_to_bucket_root(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = Path(temp_dir) / 'devcxl.gpg'
             file_path.write_text('gpg')
@@ -65,6 +65,39 @@ class UploadR2Tests(unittest.TestCase):
         self.assertEqual(args[1], 'bucket')
         self.assertEqual(args[2], 'devcxl.gpg')
         self.assertEqual(kwargs['ExtraArgs']['ContentType'], 'application/octet-stream')
+
+    def test_main_should_upload_package_files_to_packages_prefix(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / 'localsend-bin-1.0-1-x86_64.pkg.tar.zst'
+            file_path.write_text('pkg')
+            sig_path = Path(temp_dir) / 'localsend-bin-1.0-1-x86_64.pkg.tar.zst.sig'
+            sig_path.write_text('sig')
+
+            with patch.dict(
+                os.environ,
+                {
+                    'AWS_S3_BUCKET': 'bucket',
+                    'AWS_ACCESS_KEY_ID': 'key',
+                    'AWS_SECRET_ACCESS_KEY': 'secret',
+                    'AWS_S3_ENDPOINT': 'https://example.invalid',
+                    'SOURCE_DIR': temp_dir,
+                },
+                clear=True,
+            ):
+                self.module.main()
+
+        uploaded_keys = [call.args[2] for call in self.client.upload_file.call_args_list]
+        self.assertEqual(
+            uploaded_keys,
+            [
+                'packages/localsend-bin-1.0-1-x86_64.pkg.tar.zst',
+                'packages/localsend-bin-1.0-1-x86_64.pkg.tar.zst.sig',
+            ],
+        )
+
+        first_call = self.client.upload_file.call_args_list[0]
+        self.assertEqual(first_call.args[1], 'bucket')
+        self.assertEqual(first_call.kwargs['ExtraArgs']['ContentType'], 'application/zstd')
 
 
 if __name__ == '__main__':

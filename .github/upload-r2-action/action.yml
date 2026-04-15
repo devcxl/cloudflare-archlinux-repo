@@ -1,5 +1,5 @@
 name: 'Upload to R2'
-description: 'Upload repository files to Cloudflare R2 bucket root'
+description: 'Upload database files to root and package files to packages/'
 inputs:
   aws-bucket:
     description: 'R2 bucket name'

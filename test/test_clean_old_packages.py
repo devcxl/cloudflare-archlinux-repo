@@ -39,19 +39,19 @@ class CleanOldPackagesTests(unittest.TestCase):
             'AWS_S3_ENDPOINT': 'https://example.invalid',
         }
 
-    def test_get_latest_versions_should_scan_bucket_root(self):
+    def test_get_latest_versions_should_scan_packages_prefix(self):
         self.paginator.paginate.return_value = [
             {
                 'Contents': [
-                    {'Key': 'visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst'},
-                    {'Key': 'visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst'},
+                    {'Key': 'packages/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst'},
+                    {'Key': 'packages/visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst'},
                 ]
             }
         ]
 
         latest_versions, all_packages = self.module.get_latest_versions(self.client, 'bucket')
 
-        self.paginator.paginate.assert_called_once_with(Bucket='bucket', Prefix='')
+        self.paginator.paginate.assert_called_once_with(Bucket='bucket', Prefix='packages/')
         self.assertEqual(latest_versions[('visual-studio-code-bin', 'x86_64')]['version'], '1.1-1')
         self.assertEqual(len(all_packages), 2)
 
@@ -61,7 +61,7 @@ class CleanOldPackagesTests(unittest.TestCase):
                 'name': 'visual-studio-code-bin',
                 'version': '1.1-1',
                 'arch': 'x86_64',
-                'key': 'visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst',
+                'key': 'packages/visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst',
             }
         }
         all_packages = [
@@ -69,13 +69,13 @@ class CleanOldPackagesTests(unittest.TestCase):
                 'name': 'visual-studio-code-bin',
                 'version': '1.0-1',
                 'arch': 'x86_64',
-                'key': 'visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst',
+                'key': 'packages/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst',
             },
             {
                 'name': 'visual-studio-code-bin',
                 'version': '1.1-1',
                 'arch': 'x86_64',
-                'key': 'visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst',
+                'key': 'packages/visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst',
             },
         ]
 
@@ -91,8 +91,8 @@ class CleanOldPackagesTests(unittest.TestCase):
         self.assertEqual(
             deleted_keys,
             [
-                'visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst',
-                'visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst.sig',
+                'packages/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst',
+                'packages/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst.sig',
             ],
         )
         self.client.delete_objects.assert_called_once()
@@ -103,7 +103,7 @@ class CleanOldPackagesTests(unittest.TestCase):
                 'name': 'visual-studio-code-bin',
                 'version': '1.1-1',
                 'arch': 'x86_64',
-                'key': 'visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst',
+                'key': 'packages/visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst',
             }
         }
         all_packages = [
@@ -111,20 +111,20 @@ class CleanOldPackagesTests(unittest.TestCase):
                 'name': 'visual-studio-code-bin',
                 'version': '1.0-1',
                 'arch': 'x86_64',
-                'key': 'visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst',
+                'key': 'packages/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst',
             },
             {
                 'name': 'visual-studio-code-bin',
                 'version': '1.1-1',
                 'arch': 'x86_64',
-                'key': 'visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst',
+                'key': 'packages/visual-studio-code-bin-1.1-1-x86_64.pkg.tar.zst',
             },
         ]
 
         with (
             patch.dict(os.environ, self.environ, clear=True),
             patch.object(self.module, 'get_latest_versions', return_value=(latest_versions, all_packages)),
-            patch.object(self.module, 'delete_old_versions', return_value=['visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst']),
+            patch.object(self.module, 'delete_old_versions', return_value=['packages/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst']),
         ):
             self.module.main()
 

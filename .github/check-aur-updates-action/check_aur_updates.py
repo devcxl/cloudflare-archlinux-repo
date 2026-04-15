@@ -26,6 +26,9 @@ import boto3
 import requests
 
 
+PACKAGE_PREFIX = 'packages/'
+
+
 def parse_package_filename(filename):
     """
     Parse Arch Linux package filename.
@@ -214,7 +217,7 @@ def get_aur_versions(packages):
     return aur_versions
 
 
-def get_r2_versions(client, bucket, prefix=''):
+def get_r2_versions(client, bucket, prefix=PACKAGE_PREFIX):
     """
     Get package versions from R2 storage.
 
@@ -222,7 +225,7 @@ def get_r2_versions(client, bucket, prefix=''):
     """
     r2_versions = {}
 
-    print(f"Scanning R2 bucket: {bucket}")
+    print(f"Scanning R2 bucket packages directory: {bucket}/{prefix}")
 
     try:
         paginator = client.get_paginator('list_objects_v2')
@@ -320,7 +323,7 @@ def main():
         aws_secret_access_key=secret_access_key,
         endpoint_url=endpoint
     )
-    r2_versions = get_r2_versions(client, bucket)
+    r2_versions = get_r2_versions(client, bucket, prefix=PACKAGE_PREFIX)
 
     if r2_versions:
         print(f"Found {len(r2_versions)} packages in R2")

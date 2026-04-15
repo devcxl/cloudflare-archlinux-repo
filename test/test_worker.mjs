@@ -60,3 +60,63 @@ test('对象不存在时返回 404', async () => {
   assert.equal(response.status, 404)
   assert.equal(await response.text(), 'Not found')
 })
+
+test('根路径包请求应回退到 packages 目录', async () => {
+  const keys = []
+  const env = {
+    ARCH_REPO: {
+      async get(key) {
+        keys.push(key)
+
+        if (key === 'packages/localsend-bin-1.0-1-x86_64.pkg.tar.zst') {
+          return {
+            body: 'pkg',
+            size: 3,
+            httpMetadata: { contentType: 'application/octet-stream' },
+          }
+        }
+
+        return null
+      },
+    },
+  }
+
+  const response = await worker.fetch(new Request('https://repo.archlinux.devcxl.cn/localsend-bin-1.0-1-x86_64.pkg.tar.zst'), env)
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(keys, [
+    'localsend-bin-1.0-1-x86_64.pkg.tar.zst',
+    'packages/localsend-bin-1.0-1-x86_64.pkg.tar.zst',
+  ])
+  assert.equal(await response.text(), 'pkg')
+})
+
+test('根路径包签名请求应回退到 packages 目录', async () => {
+  const keys = []
+  const env = {
+    ARCH_REPO: {
+      async get(key) {
+        keys.push(key)
+
+        if (key === 'packages/localsend-bin-1.0-1-x86_64.pkg.tar.zst.sig') {
+          return {
+            body: 'sig',
+            size: 3,
+            httpMetadata: { contentType: 'application/octet-stream' },
+          }
+        }
+
+        return null
+      },
+    },
+  }
+
+  const response = await worker.fetch(new Request('https://repo.archlinux.devcxl.cn/localsend-bin-1.0-1-x86_64.pkg.tar.zst.sig'), env)
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(keys, [
+    'localsend-bin-1.0-1-x86_64.pkg.tar.zst.sig',
+    'packages/localsend-bin-1.0-1-x86_64.pkg.tar.zst.sig',
+  ])
+  assert.equal(await response.text(), 'sig')
+})

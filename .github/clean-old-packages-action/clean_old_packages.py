@@ -2,8 +2,8 @@
 """
 Cleanup old package versions from Cloudflare R2 storage.
 
-This script scans the bucket root, keeps only the latest version for each
-package/arch pair, and deletes older package files together with their
+This script scans the packages/ prefix in the bucket, keeps only the latest
+version for each package/arch pair, and deletes older package files together with their
 signature files. It does not modify the repository database.
 """
 
@@ -12,6 +12,9 @@ import re
 import sys
 
 import boto3
+
+
+PACKAGE_PREFIX = 'packages/'
 
 
 def parse_arch_version(version_string):
@@ -123,8 +126,8 @@ def parse_package_filename(filename):
     return name, version, arch
 
 
-def get_latest_versions(client, bucket, prefix=''):
-    """Get the latest version for each package in the bucket root."""
+def get_latest_versions(client, bucket, prefix=PACKAGE_PREFIX):
+    """Get the latest version for each package in the R2 packages/ directory."""
     latest_versions = {}
     all_packages = []
 
@@ -235,13 +238,13 @@ def main():
     )
 
     try:
-        latest_versions, all_packages = get_latest_versions(client, bucket, prefix='')
+        latest_versions, all_packages = get_latest_versions(client, bucket, prefix=PACKAGE_PREFIX)
     except Exception as exc:
         print(f'Error scanning bucket: {exc}', file=sys.stderr)
         sys.exit(1)
 
     if not latest_versions:
-        print('No packages found in bucket root. Nothing to clean.')
+        print('No packages found in R2 packages/ directory. Nothing to clean.')
         return
 
     print(f'Found {len(latest_versions)} latest package entries:')

@@ -1,5 +1,5 @@
 name: 'Download from R2'
-description: 'Download latest package files from R2 storage'
+description: 'Download latest package files from R2 packages/ directory'
 inputs:
   aws-bucket:
     description: 'R2 bucket name'

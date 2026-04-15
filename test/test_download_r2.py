@@ -55,13 +55,13 @@ class DownloadR2Tests(unittest.TestCase):
             'SKIP_PACKAGE': 'localsend-bin',
         }
 
-    def test_main_should_download_package_files_from_bucket_root(self):
+    def test_main_should_download_package_files_from_packages_prefix(self):
         self.paginator.paginate.return_value = [
             {
                 'Contents': [
-                    {'Key': 'visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst'},
-                    {'Key': 'visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst.sig'},
-                    {'Key': 'localsend-bin-1.0-1-x86_64.pkg.tar.zst'},
+                    {'Key': 'packages/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst'},
+                    {'Key': 'packages/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst.sig'},
+                    {'Key': 'packages/localsend-bin-1.0-1-x86_64.pkg.tar.zst'},
                 ]
             }
         ]
@@ -69,11 +69,14 @@ class DownloadR2Tests(unittest.TestCase):
         with patch.dict(os.environ, self.environ, clear=True), patch.object(self.module.os, 'makedirs'):
             self.module.main()
 
-        self.paginator.paginate.assert_called_once_with(Bucket='bucket', Prefix='')
+        self.paginator.paginate.assert_called_once_with(Bucket='bucket', Prefix='packages/')
 
         downloaded_keys = [call.args[1] for call in self.client.download_file.call_args_list]
-        self.assertIn('visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst', downloaded_keys)
-        self.assertNotIn('localsend-bin-1.0-1-x86_64.pkg.tar.zst', downloaded_keys)
+        self.assertIn('packages/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst', downloaded_keys)
+        self.assertNotIn('packages/localsend-bin-1.0-1-x86_64.pkg.tar.zst', downloaded_keys)
+
+        downloaded_destinations = [call.args[2] for call in self.client.download_file.call_args_list]
+        self.assertIn('repo/visual-studio-code-bin-1.0-1-x86_64.pkg.tar.zst', downloaded_destinations)
 
 
 if __name__ == '__main__':

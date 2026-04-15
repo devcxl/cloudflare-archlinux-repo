@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload repository files to Cloudflare R2 bucket root."""
+"""Upload repository files to Cloudflare R2 with package routing."""
 
 import mimetypes
 import os
@@ -9,16 +9,36 @@ import time
 import boto3
 
 
+PACKAGE_PREFIX = 'packages/'
+
+
+def is_package_artifact(path):
+    """Return True when the path points to a package file or its signature."""
+    return path.endswith('.pkg.tar.zst') or path.endswith('.pkg.tar.zst.sig')
+
+
+def get_object_key(relative_path):
+    """Map repository file paths to their destination R2 object keys."""
+    normalized_path = relative_path.replace('\\', '/')
+    filename = os.path.basename(normalized_path)
+
+    if is_package_artifact(filename):
+        return f'{PACKAGE_PREFIX}{filename}'
+
+    return normalized_path
+
+
 def iter_upload_files(source_dir):
     """Yield (local_path, key) for files under source_dir, following symlinks."""
     for root, _, files in os.walk(source_dir):
         for filename in sorted(files):
             local_path = os.path.join(root, filename)
             relative_path = os.path.relpath(local_path, source_dir)
+            key = get_object_key(relative_path)
             if os.path.islink(local_path):
-                yield os.path.realpath(local_path), relative_path
+                yield os.path.realpath(local_path), key
             else:
-                yield local_path, relative_path
+                yield local_path, key
 
 
 def main():
