@@ -34,39 +34,32 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
           skip-package: ${{ github.event.inputs.repo-name }}
-        continue-on-error: true  # 允许下载步骤失败，例如桶不存在或为空
 
       - name: Move new package into repo folder
         run: |
           find ./${{ github.event.inputs.repo-name }} -name '*.pkg.tar.zst' -exec cp {} ./repo/ \;
 
-      - name: Clean old package versions and update database
+      - name: Generate pacman repo database
+        uses: ./.github/generator_database
+        with:
+          database: devcxl
+          path: ./repo
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Upload to R2
+        uses: ./.github/upload-r2-action
+        with:
+          aws-bucket: ${{ secrets.AWS_BUCKET }}
+          aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
+          source-dir: ./repo
+
+      - name: Clean old package versions in R2
         uses: ./.github/clean-old-packages-action
         with:
           aws-bucket: ${{ secrets.AWS_BUCKET }}
           aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
-          database-name: self
-          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
-        continue-on-error: true  # 允许清理步骤失败，例如桶不存在或为空
-
-      - name: Generate pacman repo database if not exists
-        if: always()  # 无论前面步骤是否失败，都尝试生成数据库
-        uses: ./.github/generator_database
-        with:
-          database: self
-          path: ./repo
-          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
-
-      - name: Upload to R2
-        uses: shallwefootball/s3-upload-action@master
-        with:
-          endpoint: ${{ secrets.AWS_ENDPOINT }}
-          aws_key_id: ${{ secrets.AWS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
-          aws_bucket: ${{ secrets.AWS_BUCKET }}
-          source_dir: ./repo
-          destination_dir: repo/

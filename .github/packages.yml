@@ -1,11 +1,10 @@
 # 监控的 AUR 包列表
 packages:
-  - hysteria-bin
-  - localsend-bin
   - visual-studio-code-bin
-  - opencode-bin
   - opencode-desktop-bin
   - claude-code
+  - hysteria-bin
+  - localsend-bin
   # - clash-verge-rev-autobuild-bin
   # - wechat-universal-bwrap
   # - wemeet-bin

@@ -80,16 +80,16 @@ ssb   rsa4096 2025-05-26 [E] [有效至：2030-05-25]
 ```
 ## 导出公钥
 ```
-gpg --armor  --export D12A6ED8CDA1B38C3AD03D48ECBFD0BD2666278B > self.gpg
+gpg --armor  --export D12A6ED8CDA1B38C3AD03D48ECBFD0BD2666278B > devcxl.gpg
 ```
 
 ## 将公钥上传到Cloudflare R2存储桶
 
-`npx wrangler r2 object put <bucketname>/self.gpg --file=/path/to/self.gpg`
+`npx wrangler r2 object put <bucketname>/devcxl.gpg --file=/path/to/devcxl.gpg`
 
 ##  信任公钥
 
-`sudo curl -sL https://repo.archlinux.devcxl.cn/self.gpg | sudo pacman-key --add - && sudo pacman-key --lsign-key C185EFFBD7587B346642F06A9AC873FEDCC2792A`
+`sudo curl -sL https://repo.archlinux.devcxl.cn/devcxl.gpg | sudo pacman-key --add - && sudo pacman-key --lsign-key <your-key-id>`
 
 
 ## Using the Repository
@@ -99,12 +99,23 @@ gpg --armor  --export D12A6ED8CDA1B38C3AD03D48ECBFD0BD2666278B > self.gpg
 Edit `/etc/pacman.conf` and add the repository configuration:
 
 ```
-[cloudflare-repo]
-Server = https://your-worker-domain.workers.dev/$repo
+[devcxl]
+Server = https://your-worker-domain.workers.dev
 SigLevel = Required
 ```
 
 Replace `your-worker-domain.workers.dev` with your actual Cloudflare Worker URL.
+
+仓库数据库、包文件和公钥都直接发布在存储桶根路径，不再使用 `repo/` 前缀。
+
+### 迁移已有部署
+
+如果你之前已经把仓库文件发布在 `repo/` 前缀下，切换到当前版本前请先完成其中一种迁移方式：
+
+1. 将 `repo/` 下的现有包文件和数据库文件迁移到存储桶根路径；
+2. 或者按 `.github/packages.yml` 中的包列表重新触发完整构建，重新在根路径生成 `devcxl.db*` 和所有包文件。
+
+迁移完成后，再把客户端配置切换到 `[devcxl]`。
 
 ### 2. Update Package Database
 
@@ -135,7 +146,7 @@ sudo pacman -Syu
 To list all packages in the repository:
 
 ```bash
-sudo pacman -Sl cloudflare-repo
+sudo pacman -Sl devcxl
 ```
 
 ### Troubleshooting

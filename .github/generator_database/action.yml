@@ -7,7 +7,7 @@ inputs:
   database:
     description: 'AUR repository database name'
     required: true
-    default: 'self'
+    default: 'devcxl'
   path:
     description: 'packages dir'
     required: true

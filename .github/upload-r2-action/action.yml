@@ -1,5 +1,5 @@
-name: 'Clean Old Package Versions'
-description: 'Clean old versions of Arch Linux packages from R2 storage'
+name: 'Upload to R2'
+description: 'Upload repository files to Cloudflare R2 bucket root'
 inputs:
   aws-bucket:
     description: 'R2 bucket name'
@@ -13,27 +13,22 @@ inputs:
   aws-endpoint:
     description: 'R2 S3-compatible endpoint URL'
     required: true
-  max-deletions:
-    description: 'Maximum number of packages to delete per run (default: 50)'
-    required: false
-    default: '50'
-  dry-run:
-    description: 'Dry run mode - only show what would be deleted (default: false)'
-    required: false
-    default: 'false'
+  source-dir:
+    description: 'Source directory to upload'
+    required: true
+    default: './repo'
 runs:
   using: 'composite'
   steps:
     - name: Install boto3
       run: pip install boto3
       shell: bash
-    - name: Clean old package versions
-      run: python ${{ github.action_path }}/clean_old_packages.py
+    - name: Upload files to R2
+      run: python ${{ github.action_path }}/upload_r2.py
       shell: bash
       env:
         AWS_S3_BUCKET: ${{ inputs.aws-bucket }}
         AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
         AWS_S3_ENDPOINT: ${{ inputs.aws-endpoint }}
-        MAX_DELETIONS: ${{ inputs.max-deletions }}
-        DRY_RUN: ${{ inputs.dry-run }}
+        SOURCE_DIR: ${{ inputs.source-dir }}

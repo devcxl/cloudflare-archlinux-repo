@@ -1,7 +1,8 @@
 {
   "name": "cloudflare-archlinux-repo",
   "version": "1.0.0",
-  "description": "make you self archlinux repo in cloudflare worker",
+  "description": "build your own Arch Linux repository on Cloudflare Workers",
+  "type": "module",
   "keywords": [
     "cloudflare",
     "archlinux",
@@ -11,6 +12,9 @@
   "author": "devcxl",
   "main": "index.js",
   "scripts": {
+    "test": "npm run test:js && npm run test:py",
+    "test:js": "node --test test/test_worker.mjs",
+    "test:py": "python3 -m unittest discover -s test -p 'test_*.py' -v",
     "deploy": "wrangler deploy index.js",
     "dev": "wrangler dev index.js --remote"
   },

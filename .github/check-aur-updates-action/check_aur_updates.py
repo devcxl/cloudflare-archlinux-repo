@@ -43,7 +43,7 @@ def parse_package_filename(filename):
     base = filename[:-len('.pkg.tar.zst')]
 
     # 查找架构部分（x86_64, i686, armv7h, aarch64 等）
-    arch_match = re.search(r'-(x86_64|i686|armv7h|aarch64)$', base)
+    arch_match = re.search(r'-(x86_64|i686|armv7h|aarch64|any)$', base)
     if not arch_match:
         return None
 
@@ -214,7 +214,7 @@ def get_aur_versions(packages):
     return aur_versions
 
 
-def get_r2_versions(client, bucket, prefix='repo/'):
+def get_r2_versions(client, bucket, prefix=''):
     """
     Get package versions from R2 storage.
 
@@ -251,7 +251,9 @@ def get_r2_versions(client, bucket, prefix='repo/'):
                     name, version, arch = parsed
                     # Validate package name
                     if re.match(r'^[a-zA-Z0-9@._+-]+$', name):
-                        r2_versions[name] = version
+                        current_version = r2_versions.get(name)
+                        if current_version is None or compare_versions(version, current_version) > 0:
+                            r2_versions[name] = version
 
     except Exception as e:
         print(f"Error scanning R2: {e}", file=sys.stderr)
