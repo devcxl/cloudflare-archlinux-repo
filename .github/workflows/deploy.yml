@@ -1,7 +1,12 @@
 name: Deploy cloudflare worker
 
 on:
+  workflow_dispatch:
   push:
+    branches:
+      - master
+    paths:
+      - "index.js"
     tags:
       - "v*"
 

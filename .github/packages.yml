@@ -2,7 +2,9 @@
 packages:
   - visual-studio-code-bin
   - opencode-desktop-bin
+  - opencode-bin
   - claude-code
+  - openai-codex-desktop
   - openai-codex-bin
   - hysteria-bin
   - localsend-bin
