@@ -1,15 +1,22 @@
-# 监控的 AUR 包列表
+# 监控的包列表
+# 条目格式：{name, url}
+# url 支持 aur.archlinux.org 或 github.com 等任意 git 仓库地址
 packages:
-  - visual-studio-code-bin
-  - opencode-desktop-bin
-  - opencode-bin
-  - claude-code
-  - openai-codex-desktop
-  - openai-codex-bin
-  - hysteria-bin
-  - localsend-bin
-  # - clash-verge-rev-autobuild-bin
-  # - wechat-universal-bwrap
-  # - wemeet-bin
-  # - dingtalk-bin
-  # - baidunetdisk-bin
+  - name: visual-studio-code-bin
+    url: https://aur.archlinux.org/visual-studio-code-bin.git
+  - name: opencode-desktop-bin
+    url: https://aur.archlinux.org/opencode-desktop-bin.git
+  - name: opencode-bin
+    url: https://aur.archlinux.org/opencode-bin.git
+  - name: claude-code
+    url: https://aur.archlinux.org/claude-code.git
+  - name: openai-codex-desktop
+    url: https://aur.archlinux.org/openai-codex-desktop.git
+  - name: openai-codex-bin
+    url: https://aur.archlinux.org/openai-codex-bin.git
+  - name: hysteria-bin
+    url: https://aur.archlinux.org/hysteria-bin.git
+  - name: localsend-bin
+    url: https://aur.archlinux.org/localsend-bin.git
+  - name: codegraph-bin
+    url: https://aur.archlinux.org/codegraph-bin.git

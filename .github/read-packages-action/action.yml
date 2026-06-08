@@ -7,10 +7,10 @@ inputs:
     default: '.github/packages.yml'
 outputs:
   packages:
-    description: 'Space-separated list of packages'
+    description: 'Space-separated list of all package names'
     value: ${{ steps.read-packages.outputs.packages }}
   packages-json:
-    description: 'JSON list of packages'
+    description: 'JSON list of all packages [{name, url}]'
     value: ${{ steps.read-packages.outputs.packages-json }}
 runs:
   using: 'composite'
