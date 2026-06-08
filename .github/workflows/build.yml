@@ -1,12 +1,16 @@
-name: Build aur package
+name: Build arch package
 
 on:
   workflow_dispatch:
     inputs:
-      repo-name:
-        description: "Aur仓库名"
+      package-name:
+        description: "包名"
         required: true
         default: "localsend-bin"
+      source-url:
+        description: "Git 仓库 URL"
+        required: true
+        default: "https://aur.archlinux.org/localsend-bin.git"
 
 jobs:
   build:
@@ -17,14 +21,14 @@ jobs:
       - name: Build package
         uses: ./.github/build-aur-action
         with:
-          repo: ${{ github.event.inputs.repo-name }}
-          packager: ${{ secrets.PACKAGER_NAME }}
+          package-name: ${{ github.event.inputs.package-name }}
+          source-url: ${{ github.event.inputs.source-url }}
 
       - name: Cache package
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.repo-name }}
-          path: ./${{ github.event.inputs.repo-name }}/*.pkg.tar.zst
+          name: ${{ github.event.inputs.package-name }}
+          path: ./${{ github.event.inputs.package-name }}/*.pkg.tar.zst
 
       - name: Download existing packages from R2
         uses: ./.github/download-r2-action
@@ -33,11 +37,11 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
-          skip-package: ${{ github.event.inputs.repo-name }}
+          skip-package: ${{ github.event.inputs.package-name }}
 
       - name: Move new package into repo folder
         run: |
-          find ./${{ github.event.inputs.repo-name }} -name '*.pkg.tar.zst' -exec cp {} ./repo/ \;
+          find ./${{ github.event.inputs.package-name }} -name '*.pkg.tar.zst' -exec cp {} ./repo/ \;
 
       - name: Generate pacman repo database
         uses: ./.github/generator_database

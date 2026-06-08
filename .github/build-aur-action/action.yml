@@ -1,20 +1,20 @@
-name: '构建Aur包'
-description: '通过archlinux的docker镜像构建aur包'
+name: '构建Arch包'
+description: '通过archlinux的docker镜像构建包（支持AUR和Git源）'
 branding:
   icon: user-check
   color: gray-dark
 inputs:
-  repo:
-    description: 'AUR仓库名称'
+  package-name:
+    description: '包名'
     required: true
     default: 'localsend-bin'
-  packager:
-    description: '打包人信息'
+  source-url:
+    description: 'Git仓库URL'
     required: true
-    default: 'Anyname'
+    default: 'https://aur.archlinux.org/localsend-bin.git'
 runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
-    - ${{ inputs.repo }}
-    - ${{ inputs.packager }}
+    - ${{ inputs.package-name }}
+    - ${{ inputs.source-url }}
