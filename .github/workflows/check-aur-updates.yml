@@ -1,4 +1,4 @@
-name: Check AUR Updates
+name: Check Package Updates
 
 on:
   schedule:
@@ -21,7 +21,7 @@ jobs:
 
       - uses: ./.github/check-aur-updates-action
         with:
-          packages: ${{ steps.read-packages.outputs.packages }}
+          packages-json: ${{ steps.read-packages.outputs.packages-json }}
           aws-bucket: ${{ secrets.AWS_BUCKET }}
           aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

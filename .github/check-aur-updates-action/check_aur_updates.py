@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
 """
-Check AUR package updates and trigger build workflows.
+Check package updates and trigger build workflows.
 
 This script:
-1. Queries AUR RPC API to get current package versions
+1. Detects package source from URL (AUR RPC for aur.archlinux.org, GitHub API for github.com)
 2. Gets already built versions from R2 storage
 3. Compares versions and detects updates
 4. Triggers build.yml workflow for packages with updates
 
 Environment Variables Required:
-    PACKAGES: Space-separated list of AUR packages to check
+    PACKAGES_JSON: JSON list of packages [{name, url}]
     AWS_S3_BUCKET: R2 bucket name
     AWS_ACCESS_KEY_ID: R2 access key ID
     AWS_SECRET_ACCESS_KEY: R2 secret access key
     AWS_S3_ENDPOINT: R2 S3-compatible endpoint URL
-    GH_TOKEN: GitHub token for triggering workflows
+    GH_TOKEN: GitHub token for triggering workflows / API calls
     GH_REPOSITORY: GitHub repository path (owner/repo)
 """
 
+import json
 import os
 import re
 import sys
@@ -27,6 +28,21 @@ import requests
 
 
 PACKAGE_PREFIX = 'packages/'
+GITHUB_API_BASE = 'https://api.github.com'
+
+
+def parse_aur_pkgname(url):
+    """
+    Extract AUR package name from an aur.archlinux.org URL.
+
+    Examples:
+        https://aur.archlinux.org/visual-studio-code-bin.git → visual-studio-code-bin
+        https://aur.archlinux.org/pkgname → pkgname
+
+    Returns package name (str) or None.
+    """
+    m = re.search(r'aur\.archlinux\.org/([^/\s]+?)(?:\.git)?/?$', url)
+    return m.group(1) if m else None
 
 
 def parse_package_filename(filename):
@@ -38,24 +54,18 @@ def parse_package_filename(filename):
 
     Returns tuple: (name, version, arch) or None if invalid
     """
-    # Expected extension
     if not filename.endswith('.pkg.tar.zst'):
         return None
 
-    # Remove extension and parse filename
     base = filename[:-len('.pkg.tar.zst')]
 
-    # 查找架构部分（x86_64, i686, armv7h, aarch64 等）
     arch_match = re.search(r'-(x86_64|i686|armv7h|aarch64|any)$', base)
     if not arch_match:
         return None
 
     arch = arch_match.group(1)
-    # 从 base 中移除 arch 部分
     base = base[:arch_match.start()]
 
-    # 查找版本部分（版本格式通常包含数字、点和可能的连字符或其他字符）
-    # 版本通常以数字开头，但可能包含字母字符（如 rc, beta 等）
     version_match = re.search(r'-\d+(\.\d+)*', base)
     if not version_match:
         return None
@@ -64,11 +74,9 @@ def parse_package_filename(filename):
     version = base[version_start:]
     name = base[:version_match.start()]
 
-    # Validate package name (whitelist)
     if not re.match(r'^[a-zA-Z0-9@._+-]+$', name):
         return None
 
-    # Validate arch
     if not re.match(r'^[a-zA-Z0-9_]+$', arch):
         return None
 
@@ -86,7 +94,6 @@ def parse_arch_version(version_string):
 
     Returns a tuple: (epoch, pkgver_parts, pkgrel)
     """
-    # Handle epoch prefix
     if ':' in version_string:
         epoch_str, version_string = version_string.split(':', 1)
         try:
@@ -96,9 +103,7 @@ def parse_arch_version(version_string):
     else:
         epoch = 0
 
-    # Split pkgver and pkgrel
     if '-' in version_string:
-        # Last hyphen is pkgver-pkgrel separator
         parts = version_string.rsplit('-', 1)
         pkgver = parts[0]
         try:
@@ -109,7 +114,6 @@ def parse_arch_version(version_string):
         pkgver = version_string
         pkgrel = 0
 
-    # Parse pkgver into comparable parts
     pkgver_parts = []
     current = ''
     for char in pkgver:
@@ -143,17 +147,15 @@ def compare_versions(v1, v2):
     parsed1 = parse_arch_version(v1)
     parsed2 = parse_arch_version(v2)
 
-    # Compare epoch first
     if parsed1[0] != parsed2[0]:
         return 1 if parsed1[0] > parsed2[0] else -1
 
-    # Compare pkgver parts
     for i in range(min(len(parsed1[1]), len(parsed2[1]))):
         type1, val1 = parsed1[1][i]
         type2, val2 = parsed2[1][i]
 
         if type1 == type2:
-            if type1 == 0:  # Number
+            if type1 == 0:
                 try:
                     num1 = int(val1)
                     num2 = int(val2)
@@ -162,25 +164,92 @@ def compare_versions(v1, v2):
                 except ValueError:
                     if val1 != val2:
                         return 1 if val1 > val2 else -1
-            else:  # Letter or other
+            else:
                 if val1 != val2:
                     return 1 if val1 > val2 else -1
         else:
-            # Different types: numbers come before letters
             return 1 if type1 > type2 else -1
 
-    # If one has more parts, it's considered newer
     if len(parsed1[1]) != len(parsed2[1]):
         return 1 if len(parsed1[1]) > len(parsed2[1]) else -1
 
-    # Compare pkgrel
     if parsed1[2] != parsed2[2]:
         return 1 if parsed1[2] > parsed2[2] else -1
 
     return 0
 
 
-def get_aur_versions(packages):
+def parse_github_repo(git_url):
+    """
+    Extract owner/repo from a GitHub URL.
+
+    Examples:
+        https://github.com/user/repo.git  → user/repo
+        https://github.com/user/repo      → user/repo
+        git@github.com:user/repo.git      → user/repo
+    """
+    patterns = [
+        r'github\.com[:/]([^/]+)/([^/\s]+?)(?:\.git)?$',
+    ]
+    for pat in patterns:
+        m = re.search(pat, git_url)
+        if m:
+            return f"{m.group(1)}/{m.group(2)}"
+    return None
+
+
+def get_github_latest_release(owner_repo, gh_token=None):
+    """
+    Get the latest release tag from GitHub.
+
+    Returns tag_name (str) or None.
+    """
+    headers = {'Accept': 'application/vnd.github.v3+json'}
+    if gh_token:
+        headers['Authorization'] = f'Bearer {gh_token}'
+
+    url = f'{GITHUB_API_BASE}/repos/{owner_repo}/releases/latest'
+
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        if response.status_code == 404:
+            print(f"    No releases found for {owner_repo}, trying tags...")
+            return get_github_latest_tag(owner_repo, gh_token)
+        response.raise_for_status()
+        data = response.json()
+        tag = data.get('tag_name', '')
+        return tag.lstrip('v')
+    except requests.RequestException as e:
+        print(f"    Error fetching release for {owner_repo}: {e}", file=sys.stderr)
+        return None
+
+
+def get_github_latest_tag(owner_repo, gh_token=None):
+    """
+    Get the latest tag from GitHub (fallback when no releases exist).
+
+    Returns tag_name (str) or None.
+    """
+    headers = {'Accept': 'application/vnd.github.v3+json'}
+    if gh_token:
+        headers['Authorization'] = f'Bearer {gh_token}'
+
+    url = f'{GITHUB_API_BASE}/repos/{owner_repo}/tags?per_page=1'
+
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        if data and isinstance(data, list) and len(data) > 0:
+            tag = data[0].get('name', '')
+            return tag.lstrip('v')
+    except requests.RequestException as e:
+        print(f"    Error fetching tags for {owner_repo}: {e}", file=sys.stderr)
+
+    return None
+
+
+def get_aur_versions(package_names):
     """
     Get package versions from AUR RPC API.
 
@@ -188,15 +257,14 @@ def get_aur_versions(packages):
     """
     aur_versions = {}
 
-    if not packages:
+    if not package_names:
         return aur_versions
 
-    # Build API URL with all packages
     url = "https://aur.archlinux.org/rpc?v=5&type=info"
-    for pkg in packages:
-        url += f"&arg[]={pkg}"
+    for name in package_names:
+        url += f"&arg[]={name}"
 
-    print(f"Querying AUR API for {len(packages)} packages...")
+    print(f"Querying AUR API for {len(package_names)} packages...")
 
     try:
         response = requests.get(url, timeout=30)
@@ -215,6 +283,38 @@ def get_aur_versions(packages):
         print(f"Error querying AUR API: {e}", file=sys.stderr)
 
     return aur_versions
+
+
+def get_git_versions(git_packages, gh_token=None):
+    """
+    Get latest tag versions from GitHub for github.com-sourced packages.
+
+    Returns dict: {package_name: version}
+    """
+    git_versions = {}
+
+    if not git_packages:
+        return git_versions
+
+    print(f"Querying GitHub API for {len(git_packages)} git packages...")
+
+    for pkg in git_packages:
+        name = pkg.get('name')
+        url = pkg.get('url', '')
+        owner_repo = parse_github_repo(url)
+
+        if not owner_repo:
+            print(f"  {name}: could not parse GitHub repo from URL: {url}")
+            continue
+
+        tag = get_github_latest_release(owner_repo, gh_token)
+        if tag:
+            git_versions[name] = tag
+            print(f"  {name}: {tag} (from {owner_repo})")
+        else:
+            print(f"  {name}: could not determine version for {owner_repo}")
+
+    return git_versions
 
 
 def get_r2_versions(client, bucket, prefix=PACKAGE_PREFIX):
@@ -239,20 +339,15 @@ def get_r2_versions(client, bucket, prefix=PACKAGE_PREFIX):
                 key = obj['Key']
                 filename = key[len(prefix):]
 
-                # Skip directories and signature files
                 if filename.endswith('/') or filename.endswith('.sig'):
                     continue
 
-                # Parse package filename
-                # Format: {name}-{version}-{arch}.pkg.tar.zst
                 if not filename.endswith('.pkg.tar.zst'):
                     continue
 
-                # 使用与 clean_old_packages.py 中相同的解析逻辑
                 parsed = parse_package_filename(filename)
                 if parsed:
                     name, version, arch = parsed
-                    # Validate package name
                     if re.match(r'^[a-zA-Z0-9@._+-]+$', name):
                         current_version = r2_versions.get(name)
                         if current_version is None or compare_versions(version, current_version) > 0:
@@ -264,7 +359,7 @@ def get_r2_versions(client, bucket, prefix=PACKAGE_PREFIX):
     return r2_versions
 
 
-def trigger_build(gh_token, gh_repo, package_name):
+def trigger_build(gh_token, gh_repo, package_name, source_url):
     """
     Trigger build.yml workflow for a specific package.
 
@@ -278,7 +373,8 @@ def trigger_build(gh_token, gh_repo, package_name):
     data = {
         'ref': 'master',
         'inputs': {
-            'repo-name': package_name
+            'package-name': package_name,
+            'source-url': source_url,
         }
     }
 
@@ -293,9 +389,13 @@ def trigger_build(gh_token, gh_repo, package_name):
         return False
 
 
+def is_aur_url(url):
+    """Check if a URL points to the AUR."""
+    return 'aur.archlinux.org' in url
+
+
 def main():
-    # Get environment variables
-    packages_str = os.environ.get('PACKAGES', '')
+    packages_json = os.environ.get('PACKAGES_JSON', '[]')
     bucket = os.environ.get('AWS_S3_BUCKET')
     access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
     secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
@@ -303,17 +403,33 @@ def main():
     gh_token = os.environ.get('GH_TOKEN')
     gh_repo = os.environ.get('GH_REPOSITORY')
 
-    if not all([packages_str, bucket, access_key_id, secret_access_key, endpoint, gh_token, gh_repo]):
+    if not all([bucket, access_key_id, secret_access_key, endpoint, gh_token, gh_repo]):
         print("Error: Missing required environment variables.", file=sys.stderr)
         sys.exit(1)
 
-    # Parse package list
-    packages = packages_str.split()
-    print(f"Checking {len(packages)} packages for updates...")
+    try:
+        packages = json.loads(packages_json) if packages_json.strip() else []
+    except json.JSONDecodeError as e:
+        print(f"Error parsing PACKAGES_JSON: {e}", file=sys.stderr)
+        packages = []
+
+    if not packages:
+        print("No packages configured.")
+        return
+
+    # Split packages by URL domain for version checking strategy
+    aur_packages = [p for p in packages if is_aur_url(p.get('url', ''))]
+    git_packages = [p for p in packages if not is_aur_url(p.get('url', ''))]
+
+    aur_count = len(aur_packages)
+    git_count = len(git_packages)
+    print(f"Checking {len(packages)} packages for updates ({aur_count} AUR, {git_count} Git)...")
     print()
 
-    # Get AUR versions
-    aur_versions = get_aur_versions(packages)
+    # Get versions from sources
+    aur_names = [p['name'] for p in aur_packages]
+    aur_versions = get_aur_versions(aur_names)
+    git_versions = get_git_versions(git_packages, gh_token)
     print()
 
     # Get R2 versions
@@ -335,33 +451,41 @@ def main():
 
     # Compare versions and trigger builds
     updates_found = []
-    for pkg_name in packages:
-        aur_ver = aur_versions.get(pkg_name)
+
+    for pkg in packages:
+        pkg_name = pkg['name']
+        pkg_url = pkg.get('url', '')
+
+        # Get source version
+        if is_aur_url(pkg_url):
+            source_ver = aur_versions.get(pkg_name)
+            source_label = 'AUR'
+        else:
+            source_ver = git_versions.get(pkg_name)
+            source_label = 'Git'
+
+        if source_ver is None:
+            print(f"Warning: {pkg_name} not found in {source_label}")
+            continue
+
         r2_ver = r2_versions.get(pkg_name)
 
-        if not aur_ver:
-            print(f"Warning: {pkg_name} not found in AUR")
-            continue
-
         if not r2_ver:
-            # Package not in R2, trigger build
-            print(f"New package: {pkg_name} ({aur_ver})")
-            if trigger_build(gh_token, gh_repo, pkg_name):
+            print(f"New package: {pkg_name} ({source_ver})")
+            if trigger_build(gh_token, gh_repo, pkg_name, pkg_url):
                 updates_found.append(pkg_name)
                 print(f"  ✓ Build triggered")
             continue
 
-        # Compare versions
-        cmp = compare_versions(aur_ver, r2_ver)
+        cmp = compare_versions(source_ver, r2_ver)
         if cmp > 0:
             print(f"Update available: {pkg_name}")
-            print(f"  AUR version: {aur_ver}")
-            print(f"  R2 version:  {r2_ver}")
-            if trigger_build(gh_token, gh_repo, pkg_name):
+            print(f"  {source_label} version: {source_ver}")
+            print(f"  R2 version:       {r2_ver}")
+            if trigger_build(gh_token, gh_repo, pkg_name, pkg_url):
                 updates_found.append(pkg_name)
                 print(f"  ✓ Build triggered")
 
-    # Summary
     print()
     if updates_found:
         print(f"Updates found: {len(updates_found)}")

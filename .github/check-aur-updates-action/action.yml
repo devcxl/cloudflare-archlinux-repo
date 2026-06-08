@@ -1,9 +1,10 @@
-name: 'Check AUR Updates'
-description: 'Check for AUR package updates and trigger build workflows'
+name: 'Check Package Updates'
+description: 'Check for AUR/Git package updates and trigger build workflows'
 inputs:
-  packages:
-    description: 'Space-separated list of AUR packages to check'
-    required: true
+  packages-json:
+    description: 'JSON list of packages [{name, url}]'
+    required: false
+    default: '[]'
   aws-bucket:
     description: 'R2 bucket name'
     required: true
@@ -25,11 +26,11 @@ runs:
     - name: Install dependencies
       run: pip install boto3 requests
       shell: bash
-    - name: Check for AUR updates
+    - name: Check for package updates
       run: python ${{ github.action_path }}/check_aur_updates.py
       shell: bash
       env:
-        PACKAGES: ${{ inputs.packages }}
+        PACKAGES_JSON: ${{ inputs.packages-json }}
         AWS_S3_BUCKET: ${{ inputs.aws-bucket }}
         AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
