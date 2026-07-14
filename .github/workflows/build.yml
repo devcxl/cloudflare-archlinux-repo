@@ -11,12 +11,23 @@ on:
         description: "Git 仓库 URL"
         required: true
         default: "https://aur.archlinux.org/localsend-bin.git"
+      skip-audit:
+        description: "跳过 PKGBUILD 安全审计（仅紧急情况使用）"
+        required: false
+        default: "false"
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Security audit PKGBUILD
+        if: ${{ github.event.inputs.skip-audit != 'true' }}
+        uses: ./.github/pkgbuild-audit-action
+        with:
+          source-url: ${{ github.event.inputs.source-url }}
+          package-name: ${{ github.event.inputs.package-name }}
 
       - name: Build package
         uses: ./.github/build-aur-action

@@ -1,22 +1,41 @@
 # 监控的包列表
-# 条目格式：{name, url}
+# 条目格式：{name, url, allowed-source-patterns?}
 # url 支持 aur.archlinux.org 或 github.com 等任意 git 仓库地址
+# allowed-source-patterns 可选，声明 PKGBUILD 中 source URL 允许的 glob 模式白名单
+# 支持通配符 *（匹配任意字符）和 ?（匹配单个字符）
 packages:
   - name: visual-studio-code-bin
     url: https://aur.archlinux.org/visual-studio-code-bin.git
+    allowed-source-patterns:
+      - https://update.code.visualstudio.com/*
   - name: opencode-desktop-bin
     url: https://aur.archlinux.org/opencode-desktop-bin.git
+    allowed-source-patterns:
+      - https://github.com/anomalyco/opencode/releases/download/*
+      - https://raw.githubusercontent.com/anomalyco/opencode/*
   - name: opencode-bin
     url: https://aur.archlinux.org/opencode-bin.git
+    allowed-source-patterns:
+      - https://github.com/anomalyco/opencode/releases/download/*
   - name: claude-code
     url: https://aur.archlinux.org/claude-code.git
+    allowed-source-patterns:
+      - https://code.claude.com/*
+      - https://downloads.claude.ai/claude-code-releases/*
   - name: openai-codex-desktop
     url: https://aur.archlinux.org/openai-codex-desktop.git
   - name: openai-codex-bin
     url: https://aur.archlinux.org/openai-codex-bin.git
   - name: hysteria-bin
     url: https://aur.archlinux.org/hysteria-bin.git
+    allowed-source-patterns:
+      - https://github.com/apernet/hysteria/releases/download/*
   - name: localsend-bin
     url: https://aur.archlinux.org/localsend-bin.git
+    allowed-source-patterns:
+      - https://github.com/localsend/localsend/releases/download/*
   - name: codegraph-bin
     url: https://aur.archlinux.org/codegraph-bin.git
+    allowed-source-patterns:
+      - https://github.com/colbymchenry/codegraph/releases/download/*
+      - https://raw.githubusercontent.com/colbymchenry/codegraph/*

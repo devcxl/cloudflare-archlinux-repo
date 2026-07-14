@@ -1,0 +1,26 @@
+name: 'PKGBUILD安全审计'
+description: '审计PKGBUILD文件，检测供应链攻击模式'
+inputs:
+  source-url:
+    description: 'Git仓库URL'
+    required: true
+  package-name:
+    description: '包名（用于读取 packages.yml 中的域名白名单）'
+    required: true
+  config-path:
+    description: 'packages.yml 配置文件路径'
+    required: false
+    default: '.github/packages.yml'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      run: pip install PyYAML -q
+      shell: bash
+    - name: Audit PKGBUILD
+      run: python3 ${{ github.action_path }}/audit_pkgbuild.py
+      shell: bash
+      env:
+        SOURCE_URL: ${{ inputs.source-url }}
+        PACKAGE_NAME: ${{ inputs.package-name }}
+        CONFIG_PATH: ${{ inputs.config-path }}
