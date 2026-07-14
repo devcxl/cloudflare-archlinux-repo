@@ -24,8 +24,14 @@ packages:
       - https://downloads.claude.ai/claude-code-releases/*
   - name: openai-codex-desktop
     url: https://aur.archlinux.org/openai-codex-desktop.git
+    allowed-source-patterns:
+      - https://persistent.oaistatic.com/codex-app-prod/*
+      - https://registry.npmjs.org/better-sqlite3/*
+      - https://registry.npmjs.org/node-pty/*
   - name: openai-codex-bin
     url: https://aur.archlinux.org/openai-codex-bin.git
+    allowed-source-patterns:
+      - https://github.com/openai/codex/releases/download/*
   - name: hysteria-bin
     url: https://aur.archlinux.org/hysteria-bin.git
     allowed-source-patterns:
@@ -39,3 +45,11 @@ packages:
     allowed-source-patterns:
       - https://github.com/colbymchenry/codegraph/releases/download/*
       - https://raw.githubusercontent.com/colbymchenry/codegraph/*
+  - name: navicat17-premium-zh-cn
+    url: https://aur.archlinux.org/navicat17-premium-zh-cn.git
+    allowed-source-patterns:
+      - https://dn.navicat.com/download/*
+  - name: feishu-bin
+    url: https://aur.archlinux.org/feishu-bin.git
+    allowed-source-patterns:
+      - https://sf3-cn.feishucdn.com/obj/ee-appcenter/*
