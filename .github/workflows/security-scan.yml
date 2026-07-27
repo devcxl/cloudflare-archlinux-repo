@@ -29,10 +29,32 @@ jobs:
       status: ${{ job.status }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Clone AUR source
-        run: git clone --depth 1 "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
-      - name: Placeholder
-        run: echo "TODO: T2 will add Gitleaks + Semgrep scanning logic here"
+        run: |
+          git clone --depth 1 "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
+
+      - name: Check for custom Gitleaks config
+        id: gitleaks-config
+        run: |
+          if [ -f ".gitleaks.toml" ]; then
+            echo "config=.gitleaks.toml" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Gitleaks — secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: ${{ steps.gitleaks-config.outputs.config || '' }}
+        with:
+          source: ${{ env.SOURCE_DIR }}
+        continue-on-error: false
+
+      - name: Semgrep — SAST scan
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: auto
+          target: ${{ env.SOURCE_DIR }}
+        continue-on-error: false
 
   ai-review:
     name: "Layer 2 — AI Deep Review (OpenCode)"
