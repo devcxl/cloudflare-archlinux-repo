@@ -58,14 +58,14 @@ jobs:
       - name: Clone AUR source
         run: git clone --depth 1 "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
       - name: Trivy — filesystem vulnerability scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           scan-type: fs
           scan-ref: ${{ env.SOURCE_DIR }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
-          exit-code: "1"
+          exit-code: 1
           ignore-unfixed: true
 
       - name: Upload Trivy SARIF results
