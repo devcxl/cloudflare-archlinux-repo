@@ -19,7 +19,7 @@ permissions:
   security-events: write
 
 env:
-  SOURCE_DIR: /tmp/aur-source
+  SOURCE_DIR: ${{ github.workspace }}/aur-source
 
 jobs:
   quick-gate:
