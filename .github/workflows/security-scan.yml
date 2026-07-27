@@ -93,7 +93,7 @@ jobs:
       - name: OpenCode AI security review
         uses: anomalyco/opencode/github@latest  # 注: @v1 标签不存在，暂用 @latest；2026-07 已确认
         with:
-          model: "anthropic/claude-sonnet-4-20250514"
+          model: "deepseek-v4-pro"
           prompt: |
             你是一名 Arch Linux 安全审查专家。请对以下 AUR 包的源码进行深度安全检查。
 
@@ -186,9 +186,9 @@ jobs:
              - 最终判定规则：任一维度 FAIL → 最终 FAIL；有 WARN 但无 FAIL → 最终 PASS（附带提醒）。
              - 仅审查源码的安全问题，不涉及代码风格或功能正确性。
              - 请使用你的文件写入工具将报告保存到 ${{ env.SOURCE_DIR }}-sec-report.md。确保文件已成功写入后再结束。
-          agent: architect
+          agent: build
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENCODE_GO_API_KEY: ${{ secrets.OPENCODE_GO_API_KEY }}
 
       - name: Parse AI review verdict
         if: always()
