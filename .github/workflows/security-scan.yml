@@ -86,7 +86,6 @@ jobs:
 
       - name: OpenCode AI security review
         uses: anomalyco/opencode/github@latest
-        continue-on-error: true  # L2 咨询层：不阻断构建。审查结果可在 workflow logs 中查看
         with:
           model: "opencode-go/deepseek-v4-pro"
           prompt: |
