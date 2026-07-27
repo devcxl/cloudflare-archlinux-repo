@@ -87,7 +87,7 @@ jobs:
       - name: OpenCode AI security review
         uses: anomalyco/opencode/github@latest  # 注: @v1 标签不存在，暂用 @latest；2026-07 已确认
         with:
-          model: "deepseek/deepseek-v4-pro"
+          model: "opencode-go/deepseek-v4-pro"
           prompt: |
             你是一名 Arch Linux 安全审查专家。请对以下 AUR 包的源码进行深度安全检查。
 
