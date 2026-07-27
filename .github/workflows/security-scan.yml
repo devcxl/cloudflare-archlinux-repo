@@ -88,8 +88,7 @@ jobs:
         uses: anomalyco/opencode/github@latest
         continue-on-error: true  # L2 非阻断；provider/model 格式待确认后去掉此行
         with:
-          # TODO: provider 格式待确认。可能的格式: openai/deepseek-v4-pro, deepseek/deepseek-chat 等。
-          model: "opencode-go/deepseek-v4-pro"
+          model: "deepseek-v4-pro"
           prompt: |
             你是一名 Arch Linux 安全审查专家。请对以下 AUR 包的源码进行深度安全检查。
 
@@ -184,7 +183,7 @@ jobs:
              - 请使用你的文件写入工具将报告保存到 ${{ env.SOURCE_DIR }}-sec-report.md。确保文件已成功写入后再结束。
           agent: build
         env:
-          OPENCODE_GO_API_KEY: ${{ secrets.OPENCODE_GO_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
 
       - name: Parse AI review verdict
         if: always()
