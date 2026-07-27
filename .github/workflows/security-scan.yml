@@ -88,42 +88,44 @@ jobs:
         shell: bash
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          PKG_NAME: ${{ inputs.package-name }}
+          SRC_DIR: ${{ env.SOURCE_DIR }}
         run: |
           if ! command -v opencode &>/dev/null; then
             curl -fsSL https://opencode.ai/install | bash
             export PATH="$HOME/.opencode/bin:$PATH"
           fi
-          cat > /tmp/ai-prompt.txt <<'AIPROMPT'
+          cat > /tmp/ai-prompt.txt <<AIPROMPT
           你是一名 Arch Linux 安全审查专家。请对以下 AUR 包的源码进行深度安全检查。
 
-          包名: ${{ inputs.package-name }}
-          源码路径: ${{ env.SOURCE_DIR }}
+          包名: ${PKG_NAME}
+          源码路径: ${SRC_DIR}
 
           ## 审查要求
 
           请逐个检查以下安全维度，对每个维度给出 PASS / WARN / FAIL 判定：
 
           ### 1. 源码完整性校验（Source Integrity）
-          - PKGBUILD 中 `source` 数组的所有 URL 是否指向可信域名？
-          - `sha256sums` / `sha512sums` / `b2sums` 是否完整覆盖所有 source 条目？
-          - 是否存在 `SKIP` 跳过校验的条目？
-          - 是否有通过 `curl`/`wget` 动态下载且不校验哈希的行为？
+          - PKGBUILD 中 \`source\` 数组的所有 URL 是否指向可信域名？
+          - \`sha256sums\` / \`sha512sums\` / \`b2sums\` 是否完整覆盖所有 source 条目？
+          - 是否存在 \`SKIP\` 跳过校验的条目？
+          - 是否有通过 \`curl\`/\`wget\` 动态下载且不校验哈希的行为？
 
           ### 2. 构建脚本安全（Build Script Safety）
-          - `build()`, `prepare()`, `package()`, `install()` 是否有危险模式？
-          - `curl ... | bash`、`eval`、`chmod 777`、修改系统文件等
+          - \`build()\`, \`prepare()\`, \`package()\`, \`install()\` 是否有危险模式？
+          - \`curl ... | bash\`、\`eval\`、\`chmod 777\`、修改系统文件等
 
           ### 3. 依赖安全（Dependency Security）
-          - `depends`/`makedepends` 是否合法？是否有废弃或可疑包？
+          - \`depends\`/\`makedepends\` 是否合法？是否有废弃或可疑包？
 
           ### 4. 敏感信息泄露（Secret Leakage）
           - 是否有硬编码 API Key、Token、密码、私钥？
 
           ### 5. 已知漏洞模式（Known Vulnerability Patterns）
-          - `.patch`、`.service` 等文件是否有安全问题？
+          - \`.patch\`、\`.service\` 等文件是否有安全问题？
 
           ### 6. 供应链风险（Supply Chain Risk）
-          - source URL 是否可信？`validpgpkeys` 是否明确？
+          - source URL 是否可信？\`validpgpkeys\` 是否明确？
 
           ## 输出要求
 
@@ -137,7 +139,7 @@ jobs:
           opencode run \
             --model "opencode-go/deepseek-v4-pro" \
             --prompt-file /tmp/ai-prompt.txt \
-            > "${{ env.SOURCE_DIR }}-review-output.txt" 2>&1
+            > "$SRC_DIR-review-output.txt" 2>&1
 
       - name: Parse AI review verdict
         if: always()
