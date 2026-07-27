@@ -35,10 +35,10 @@ jobs:
           git clone --depth 1 "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
 
       - name: Gitleaks — secret scan
-        run: |
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
-          cd "${{ env.SOURCE_DIR }}"
-          gitleaks detect --no-git --source=. --verbose --redact
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          source: ${{ env.SOURCE_DIR }}
+        continue-on-error: false
 
       - name: Semgrep — SAST scan
         uses: semgrep/semgrep-action@v1
