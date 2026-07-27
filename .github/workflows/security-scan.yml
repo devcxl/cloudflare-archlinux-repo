@@ -88,7 +88,7 @@ jobs:
         uses: anomalyco/opencode/github@latest
         continue-on-error: true  # L2 非阻断；provider/model 格式待确认后去掉此行
         with:
-          model: "deepseek-v4-pro"
+          model: "opencode-go/deepseek-v4-pro"
           prompt: |
             你是一名 Arch Linux 安全审查专家。请对以下 AUR 包的源码进行深度安全检查。
 
