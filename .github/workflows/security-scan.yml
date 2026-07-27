@@ -28,17 +28,23 @@ jobs:
     outputs:
       status: ${{ job.status }}
     steps:
-      - name: Checkout repo (for shared config if needed)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Clone AUR source
         run: |
           git clone --depth 1 "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
 
+      - name: Check for custom Gitleaks config
+        id: gitleaks-config
+        run: |
+          if [ -f ".gitleaks.toml" ]; then
+            echo "config=.gitleaks.toml" >> $GITHUB_OUTPUT
+          fi
+
       - name: Gitleaks — secret scan
         uses: gitleaks/gitleaks-action@v2
         env:
-          GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml
+          GITLEAKS_CONFIG: ${{ steps.gitleaks-config.outputs.config || '' }}
         with:
           source: ${{ env.SOURCE_DIR }}
         continue-on-error: false
