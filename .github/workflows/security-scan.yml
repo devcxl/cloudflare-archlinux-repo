@@ -37,7 +37,7 @@ jobs:
   ai-review:
     name: "Layer 2 — AI Deep Review (OpenCode)"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     outputs:
       status: ${{ job.status }}
     steps:
@@ -69,7 +69,7 @@ jobs:
           done
 
       - name: OpenCode AI security review
-        uses: anomalyco/opencode/github@latest
+        uses: anomalyco/opencode/github@latest  # 注: @v1 标签不存在，暂用 @latest；2026-07 已确认
         with:
           model: "anthropic/claude-sonnet-4-20250514"
           prompt: |
@@ -161,11 +161,28 @@ jobs:
 
             注意：
             - 必须以 exit 0 退出（审查通过），以 exit 1 退出（审查不通过）。
-            - 最终判定规则：任一维度 FAIL → 最终 FAIL；有 WARN 但无 FAIL → 最终 PASS（附带提醒）。
-            - 仅审查源码的安全问题，不涉及代码风格或功能正确性。
+             - 最终判定规则：任一维度 FAIL → 最终 FAIL；有 WARN 但无 FAIL → 最终 PASS（附带提醒）。
+             - 仅审查源码的安全问题，不涉及代码风格或功能正确性。
+             - 请使用你的文件写入工具将报告保存到 ${{ env.SOURCE_DIR }}-sec-report.md。确保文件已成功写入后再结束。
           agent: architect
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Parse AI review verdict
+        if: always()
+        run: |
+          REPORT_FILE="${{ env.SOURCE_DIR }}-sec-report.md"
+          if [ ! -f "$REPORT_FILE" ]; then
+            echo "⚠️ AI review report not found: $REPORT_FILE"
+            echo "The AI may not have written the report file."
+            exit 1
+          fi
+          if grep -qE '最终判定[：:]\s*FAIL' "$REPORT_FILE"; then
+            echo "❌ AI review found FAIL-level security issues:"
+            grep -A2 '最终判定' "$REPORT_FILE"
+            exit 1
+          fi
+          echo "✅ AI review passed — no FAIL-level issues found"
 
       - name: Upload AI review report
         if: always()
