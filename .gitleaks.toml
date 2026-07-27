@@ -62,22 +62,18 @@ description = "GitLab Runner Registration Token"
 regex = '''\bGR1348941[A-Za-z0-9_\-]{20,}\b'''
 tags = ["credentials", "gitlab"]
 
-# Cloudflare API Token
+# Cloudflare API Token（精确上下文匹配，避免 sha256sums 误报）
 [[rules]]
 id = "cloudflare-api-token"
-description = "Cloudflare API Token"
-regex = '''\b[A-Za-z0-9_-]{40}\b'''
+description = "检测 Cloudflare API Token（CF_API_TOKEN= 上下文）"
+regex = '''(?i)(CF_?API_?TOKEN|CLOUDFLARE_?API_?TOKEN)\s*[:=]\s*['"]?([A-Za-z0-9_-]{40})['"]?'''
 tags = ["credentials", "cloudflare"]
-[rule.allowlist]
-regexes = [
-    # 排除常见 sha256 hash 误报（正则太长且可能匹配到正常内容，通过 path 辅助过滤）
-]
 
-# Cloudflare Global API Key（hex string pattern）
+# Cloudflare Global API Key（精确 hex 格式）
 [[rules]]
 id = "cloudflare-global-api-key"
-description = "Cloudflare Global API Key"
-regex = '''(?i)(CF_API_KEY|X-Auth-Key|X-Auth-Email)\s*[:=]\s*['"][0-9a-f]{37}['"]'''
+description = "检测 Cloudflare Global API Key"
+regex = '''(?i)(CF_?API_?KEY|X-Auth-Key|CLOUDFLARE_?GLOBAL)\s*[:=]\s*['"]?([A-Fa-f0-9]{37})['"]?'''
 tags = ["credentials", "cloudflare"]
 
 # 通用 API Key / Secret Key 赋值
@@ -87,6 +83,13 @@ description = "通用 API Key 或 Secret Key 赋值"
 regex = '''(?im)^\s*(api[_-]?key|apikey|secret[_-]?key|client[_-]?secret)\s*[:=]\s*['"][A-Za-z0-9+/=]{20,}['"]'''
 tags = ["credentials", "api"]
 [rule.allowlist]
+description = "排除 PKGBUILD 校验和行及常见占位符"
+paths = ["**/PKGBUILD"]
+regexes = [
+    "sha256sums",
+    "sha512sums",
+    "b2sums",
+]
 stopwords = [
     "your-api-key",
     "your-secret-key",
