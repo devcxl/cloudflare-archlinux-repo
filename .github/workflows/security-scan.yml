@@ -89,16 +89,11 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         run: |
-          # 安装 opencode CLI（和 anomalyco/opencode action 相同的安装方式）
           if ! command -v opencode &>/dev/null; then
             curl -fsSL https://opencode.ai/install | bash
             export PATH="$HOME/.opencode/bin:$PATH"
           fi
-          opencode run \
-            --model "opencode-go/deepseek-v4-pro" \
-            --agent build \
-            --prompt-file /dev/stdin \
-            > "${{ env.SOURCE_DIR }}-review-output.txt" 2>&1 <<'AIPROMPT'
+          cat > /tmp/ai-prompt.txt <<'AIPROMPT'
           你是一名 Arch Linux 安全审查专家。请对以下 AUR 包的源码进行深度安全检查。
 
           包名: ${{ inputs.package-name }}
@@ -139,6 +134,10 @@ jobs:
 
           判定规则：任一维度 FAIL → 最终 FAIL；有 WARN 但无 FAIL → 最终 PASS。
           AIPROMPT
+          opencode run \
+            --model "opencode-go/deepseek-v4-pro" \
+            --prompt-file /tmp/ai-prompt.txt \
+            > "${{ env.SOURCE_DIR }}-review-output.txt" 2>&1
 
       - name: Parse AI review verdict
         if: always()
