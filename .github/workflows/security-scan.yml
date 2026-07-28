@@ -88,11 +88,18 @@ jobs:
         uses: anomalyco/opencode/github@latest
         with:
           model: "opencode-go/deepseek-v4-pro"
+          agent: build
           prompt: |
             你是一名 Arch Linux 安全审查专家。请对以下 AUR 包的源码进行深度安全检查。
 
             包名: ${{ inputs.package-name }}
             源码路径: ${{ env.SOURCE_DIR }}
+
+            ## 重要约束
+
+            1. 这是只读安全审查任务。你只读取源码文件，不修改任何代码，不创建分支，不创建 PR
+            2. 审查完成后，将完整的审查报告写入文件 `${{ github.workspace }}/ai-review-report.md`
+            3. 报告写入完成后，你的任务即结束，不需要做任何其他操作
 
             ## 审查要求
 
@@ -122,20 +129,50 @@ jobs:
 
             ## 输出要求
 
-            审查完成后，在你的回复末尾必须单独一行输出最终判定：
-            > FINAL_VERDICT: PASS
-            或
-            > FINAL_VERDICT: FAIL
+            报告写入 `${{ github.workspace }}/ai-review-report.md`，格式如下：
+
+            ```markdown
+            # AUR 安全审查报告
+
+            **包名**: ${{ inputs.package-name }}
+            **源码**: ${{ inputs.source-url }}
+            **审查时间**: (当前时间)
+
+            ## 审查结论
+
+            **最终判定**: PASS / FAIL
+
+            ## 详细结果
+
+            | 维度 | 判定 | 说明 |
+            |------|------|------|
+            | 源码完整性校验 | PASS/WARN/FAIL | ... |
+            | 构建脚本安全 | PASS/WARN/FAIL | ... |
+            | 依赖安全 | PASS/WARN/FAIL | ... |
+            | 敏感信息泄露 | PASS/WARN/FAIL | ... |
+            | 已知漏洞模式 | PASS/WARN/FAIL | ... |
+            | 供应链风险 | PASS/WARN/FAIL | ... |
+
+            ## 发现的问题
+
+            (如有 FAIL/WARN，逐条列出问题描述、位置、风险等级、建议修复方案)
+            ```
 
             判定规则：任一维度 FAIL → 最终 FAIL；有 WARN 但无 FAIL → 最终 PASS。
-          agent: build
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
+      - name: Upload AI review report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-review-report-${{ inputs.package-name }}
+          path: ${{ github.workspace }}/ai-review-report.md
 
       - name: AI review result
         if: always()
         run: |
-          echo "✅ AI 审查已完成（L2 咨询层，审查结果见上方 OpenCode AI security review 步骤的日志）"
+          echo "✅ AI 审查已完成，审查报告已存档至 Artifacts"
 
   dependency-scan:
     name: "Layer 3 — Dependency & File Scan (Trivy)"
