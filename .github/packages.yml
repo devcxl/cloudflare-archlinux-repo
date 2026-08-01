@@ -53,3 +53,7 @@ packages:
     url: https://aur.archlinux.org/feishu-bin.git
     allowed-source-patterns:
       - https://sf3-cn.feishucdn.com/obj/ee-appcenter/*
+  - name: fcitx5-voice-input
+    url: https://aur.archlinux.org/fcitx5-voice-input.git
+    allowed-source-patterns:
+      - https://github.com/devcxl/fcitx5-voice-input/archive/refs/tags/v*.tar.gz
