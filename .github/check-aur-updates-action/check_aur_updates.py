@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Check package updates and trigger build workflows.
+Check package updates and trigger security scan workflows.
 
 This script:
 1. Detects package source from URL (AUR RPC for aur.archlinux.org, GitHub API for github.com)
 2. Gets already built versions from R2 storage
 3. Compares versions and detects updates
-4. Triggers build.yml workflow for packages with updates
+4. Triggers security-scan.yml workflow for packages with updates
 
 Environment Variables Required:
     PACKAGES_JSON: JSON list of packages [{name, url}]
@@ -359,9 +359,9 @@ def get_r2_versions(client, bucket, prefix=PACKAGE_PREFIX):
     return r2_versions
 
 
-def trigger_build(gh_token, gh_repo, package_name, source_url):
+def trigger_security_scan(gh_token, gh_repo, package_name, source_url):
     """
-    Trigger build.yml workflow for a specific package.
+    Trigger security-scan.yml workflow for a specific package.
 
     Returns True if successful, False otherwise.
     """
@@ -378,14 +378,14 @@ def trigger_build(gh_token, gh_repo, package_name, source_url):
         }
     }
 
-    url = f'https://api.github.com/repos/{gh_repo}/actions/workflows/build.yml/dispatches'
+    url = f'https://api.github.com/repos/{gh_repo}/actions/workflows/security-scan.yml/dispatches'
 
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
         response.raise_for_status()
         return True
     except requests.RequestException as e:
-        print(f"Error triggering build for {package_name}: {e}", file=sys.stderr)
+        print(f"Error triggering security scan for {package_name}: {e}", file=sys.stderr)
         return False
 
 
@@ -449,7 +449,7 @@ def main():
         print("No packages found in R2")
     print()
 
-    # Compare versions and trigger builds
+    # Compare versions and trigger security scans
     updates_found = []
 
     for pkg in packages:
@@ -472,9 +472,9 @@ def main():
 
         if not r2_ver:
             print(f"New package: {pkg_name} ({source_ver})")
-            if trigger_build(gh_token, gh_repo, pkg_name, pkg_url):
+            if trigger_security_scan(gh_token, gh_repo, pkg_name, pkg_url):
                 updates_found.append(pkg_name)
-                print(f"  ✓ Build triggered")
+                print(f"  ✓ Security scan triggered")
             continue
 
         cmp = compare_versions(source_ver, r2_ver)
@@ -482,14 +482,14 @@ def main():
             print(f"Update available: {pkg_name}")
             print(f"  {source_label} version: {source_ver}")
             print(f"  R2 version:       {r2_ver}")
-            if trigger_build(gh_token, gh_repo, pkg_name, pkg_url):
+            if trigger_security_scan(gh_token, gh_repo, pkg_name, pkg_url):
                 updates_found.append(pkg_name)
-                print(f"  ✓ Build triggered")
+                print(f"  ✓ Security scan triggered")
 
     print()
     if updates_found:
         print(f"Updates found: {len(updates_found)}")
-        print(f"Triggered builds for: {', '.join(updates_found)}")
+        print(f"Triggered security scans for: {', '.join(updates_found)}")
     else:
         print("No updates found. All packages are up to date.")
 

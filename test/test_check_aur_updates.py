@@ -64,13 +64,28 @@ class CompareVersionsTests(unittest.TestCase):
         self.assertEqual(self.cmp('1:1.0-1', '1.0-1'), 1)
 
 
-class TriggerBuildTests(unittest.TestCase):
+class TriggerSecurityScanTests(unittest.TestCase):
     def setUp(self):
         self.module, self.fake_requests, _ = load_module('check_aur_updates_under_test')
 
+    def test_trigger_targets_security_scan_workflow(self):
+        self.module.trigger_security_scan(
+            'token', 'user/repo', 'test-pkg',
+            source_url='https://aur.archlinux.org/test-pkg.git'
+        )
+
+        request_url = self.fake_requests.post.call_args[0][0]
+        self.assertEqual(
+            request_url,
+            'https://api.github.com/repos/user/repo/actions/workflows/'
+            'security-scan.yml/dispatches'
+        )
+
     def test_trigger_passes_source_url(self):
-        self.module.trigger_build('token', 'user/repo', 'test-pkg',
-                                  source_url='https://aur.archlinux.org/test-pkg.git')
+        self.module.trigger_security_scan(
+            'token', 'user/repo', 'test-pkg',
+            source_url='https://aur.archlinux.org/test-pkg.git'
+        )
         self.fake_requests.post.assert_called_once()
         call_args = self.fake_requests.post.call_args
         self.assertEqual(call_args[1]['json']['inputs']['package-name'], 'test-pkg')
@@ -78,7 +93,7 @@ class TriggerBuildTests(unittest.TestCase):
                          'https://aur.archlinux.org/test-pkg.git')
 
     def test_trigger_with_github_url(self):
-        self.module.trigger_build(
+        self.module.trigger_security_scan(
             'token', 'user/repo', 'my-pkg',
             source_url='https://github.com/u/r.git'
         )
