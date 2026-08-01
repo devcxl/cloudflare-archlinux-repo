@@ -1,5 +1,5 @@
 name: 'Check Package Updates'
-description: 'Check for AUR/Git package updates and trigger build workflows'
+description: 'Check for AUR/Git package updates and trigger security scan workflows'
 inputs:
   packages-json:
     description: 'JSON list of packages [{name, url}]'
