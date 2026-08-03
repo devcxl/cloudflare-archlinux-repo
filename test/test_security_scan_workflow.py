@@ -1,3 +1,4 @@
+import json
 import unittest
 from pathlib import Path
 
@@ -79,6 +80,15 @@ class SecurityScanWorkflowTests(unittest.TestCase):
         prompt = self._review_step()['with']['prompt']
         self.assertIn('runner.temp', prompt)
         self.assertIn('ai-review-report.md', prompt)
+
+    def test_ai_review_allows_only_runner_temp_as_external_directory(self):
+        config = json.loads(
+            self._review_step()['env']['OPENCODE_CONFIG_CONTENT']
+        )
+        permissions = config['permission']['external_directory']
+
+        self.assertEqual(permissions['${{ runner.temp }}/*'], 'allow')
+        self.assertEqual(permissions['*'], 'deny')
 
     def test_ai_review_creates_issue_and_blocks_on_fail(self):
         steps = self.workflow['jobs']['ai-review']['steps']
