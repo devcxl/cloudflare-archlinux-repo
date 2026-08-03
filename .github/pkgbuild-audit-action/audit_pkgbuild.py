@@ -12,9 +12,11 @@ PKGBUILD 安全审计脚本
 
 import os
 import re
+import shutil
 import sys
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -95,6 +97,54 @@ def extract_source_urls(sources):
     return urls
 
 
+def _extract_static_pkgbuild_variables(content):
+    """提取可安全替换的静态 PKGBUILD 标量，不执行 shell。"""
+    variables = {}
+    for name in ('pkgname', 'pkgver', 'pkgrel', 'epoch'):
+        match = re.search(
+            rf'^\s*{name}\s*=\s*(?:"([^"\n]*)"|\'([^\'\n]*)\'|([^\s#]+))',
+            content,
+            re.MULTILINE,
+        )
+        if match:
+            variables[name] = next(value for value in match.groups() if value is not None)
+    return variables
+
+
+def _expand_static_pkgbuild_variables(value, variables):
+    """仅展开已解析的静态变量，保留未知变量供白名单拒绝。"""
+    for name, replacement in variables.items():
+        value = re.sub(
+            rf'\$(?:\{{{name}\}}|{name}\b)',
+            lambda _: replacement,
+            value,
+        )
+    return value
+
+
+def clone_repository(source_url, repo_dir, attempts=3):
+    """克隆源码仓库，并对瞬时网络失败进行有限重试。"""
+    last_error = ''
+    for attempt in range(1, attempts + 1):
+        shutil.rmtree(repo_dir, ignore_errors=True)
+        try:
+            result = subprocess.run(
+                ['git', 'clone', '--depth', '1', source_url, repo_dir],
+                capture_output=True, text=True, timeout=60
+            )
+            if result.returncode == 0:
+                return True, ''
+            last_error = (result.stderr or '').strip()
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            last_error = str(exc)
+
+        if attempt < attempts:
+            print(f"::warning::git clone 失败，第 {attempt + 1} 次重试", file=sys.stderr)
+            time.sleep(attempt * 5)
+
+    return False, last_error
+
+
 def extract_patch_additions(content):
     """提取补丁文件中新增的行（+ 开头，排除 +++ 文件头）。"""
     lines = []
@@ -168,7 +218,11 @@ def run_checks(content, allowed_patterns, patch_contents=None):
     """
     sources = extract_sources(content)
     checksums = extract_checksums(content)
-    source_urls = extract_source_urls(sources)
+    variables = _extract_static_pkgbuild_variables(content)
+    source_urls = [
+        _expand_static_pkgbuild_variables(url, variables)
+        for url in extract_source_urls(sources)
+    ]
 
     sources_text = '\n'.join(sources)
     checksums_text = '\n'.join(
@@ -433,27 +487,30 @@ def _find_pkgbuild(repo_dir):
 def main():
     source_url = os.environ.get('SOURCE_URL', '').strip()
     package_name = os.environ.get('PACKAGE_NAME', '').strip()
+    source_dir = os.environ.get('SOURCE_DIR', '').strip()
     config_path = os.environ.get('CONFIG_PATH', '.github/packages.yml')
 
     if not source_url:
         print("::error::SOURCE_URL 环境变量未设置", file=sys.stderr)
         sys.exit(1)
 
-    tmpdir = tempfile.mkdtemp(prefix='pkgbuild-audit-')
-    repo_dir = os.path.join(tmpdir, 'repo')
-
     print("PKGBUILD 安全审计")
     print("===================")
     print(f"包名: {package_name}")
     print(f"源仓库: {source_url}")
 
-    result = subprocess.run(
-        ['git', 'clone', '--depth', '1', source_url, repo_dir],
-        capture_output=True, text=True, timeout=60
-    )
-    if result.returncode != 0:
-        print(f"::error::git clone 失败: {result.stderr.strip()}", file=sys.stderr)
-        sys.exit(1)
+    if source_dir:
+        repo_dir = source_dir
+        if not Path(repo_dir).is_dir():
+            print(f"::error::源码目录不存在: {repo_dir}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        tmpdir = tempfile.mkdtemp(prefix='pkgbuild-audit-')
+        repo_dir = os.path.join(tmpdir, 'repo')
+        success, clone_error = clone_repository(source_url, repo_dir)
+        if not success:
+            print(f"::error::git clone 失败: {clone_error}", file=sys.stderr)
+            sys.exit(1)
 
     pkgbuild_path = _find_pkgbuild(repo_dir)
     if not pkgbuild_path:

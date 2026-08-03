@@ -7,6 +7,10 @@ inputs:
   package-name:
     description: '包名（用于读取 packages.yml 中的域名白名单）'
     required: true
+  source-dir:
+    description: '已克隆的源码目录；为空时根据 source-url 克隆'
+    required: false
+    default: ''
   config-path:
     description: 'packages.yml 配置文件路径'
     required: false
@@ -23,4 +27,5 @@ runs:
       env:
         SOURCE_URL: ${{ inputs.source-url }}
         PACKAGE_NAME: ${{ inputs.package-name }}
+        SOURCE_DIR: ${{ inputs.source-dir }}
         CONFIG_PATH: ${{ inputs.config-path }}

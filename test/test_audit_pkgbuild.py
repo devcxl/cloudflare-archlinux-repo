@@ -5,6 +5,7 @@ PKGBUILD 安全审计脚本测试
 import importlib.util
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -116,6 +117,27 @@ class ExtractSourceUrlsTests(unittest.TestCase):
             'https://raw.githubusercontent.com/user/repo/main/LICENSE',
             'https://github.com/user/repo/releases/download/v1.0/pkg.tar.gz',
         ])
+
+
+class CloneRepositoryTests(unittest.TestCase):
+    def setUp(self):
+        self.module = load_module('audit_pkgbuild_under_test')
+
+    def test_transient_failures_are_retried(self):
+        failed = mock.Mock(returncode=128, stderr='TLS handshake failed')
+        succeeded = mock.Mock(returncode=0, stderr='')
+        self.module.subprocess.run = mock.Mock(
+            side_effect=[failed, failed, succeeded]
+        )
+        self.module.time.sleep = mock.Mock()
+
+        success, error = self.module.clone_repository(
+            'https://aur.archlinux.org/example.git', '/unused/repo'
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(error, '')
+        self.assertEqual(self.module.subprocess.run.call_count, 3)
 
 
 class GlobToRegexTests(unittest.TestCase):
@@ -297,6 +319,17 @@ class RunChecksTests(unittest.TestCase):
         content = "source=('https://github.com/anomalyco/opencode/releases/download/v1.0/pkg.deb')"
         patterns = ['https://github.com/anomalyco/opencode/releases/download/*']
         issues, blocking = self._run(content, allowed_patterns=patterns)
+        self.assert_no_issue(issues, 'source-patterns-mismatch')
+
+    def test_pattern_match_expands_static_pkgbuild_variables(self):
+        content = """pkgname=fcitx5-voice-input
+pkgver=0.3.1
+source=('https://github.com/devcxl/${pkgname}/archive/refs/tags/v${pkgver}.tar.gz')"""
+        patterns = [
+            'https://github.com/devcxl/fcitx5-voice-input/archive/refs/tags/v*.tar.gz'
+        ]
+        issues, blocking = self._run(content, allowed_patterns=patterns)
+        self.assertFalse(blocking)
         self.assert_no_issue(issues, 'source-patterns-mismatch')
 
     def test_pattern_mismatch_typosquatting(self):
