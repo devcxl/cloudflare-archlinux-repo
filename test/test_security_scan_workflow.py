@@ -8,6 +8,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = ROOT / '.github' / 'workflows' / 'security-scan.yml'
 RETRY_SCRIPT_PATH = ROOT / '.github' / 'clone-source-with-retry.sh'
+GITIGNORE_PATH = ROOT / '.gitignore'
 
 
 class SecurityScanWorkflowTests(unittest.TestCase):
@@ -56,6 +57,11 @@ class SecurityScanWorkflowTests(unittest.TestCase):
             )
             self.assertIn('.github/clone-source-with-retry.sh', clone_step['run'])
 
+    def test_cloned_source_does_not_dirty_the_workspace(self):
+        ignored_paths = GITIGNORE_PATH.read_text().splitlines()
+
+        self.assertIn('aur-source/', ignored_paths)
+
     def test_retry_helper_limits_each_clone_attempt(self):
         script = RETRY_SCRIPT_PATH.read_text()
 
@@ -87,6 +93,9 @@ class SecurityScanWorkflowTests(unittest.TestCase):
         )
         permissions = config['permission']['external_directory']
 
+        self.assertEqual(
+            list(permissions), ['*', '${{ runner.temp }}/*']
+        )
         self.assertEqual(permissions['${{ runner.temp }}/*'], 'allow')
         self.assertEqual(permissions['*'], 'deny')
 

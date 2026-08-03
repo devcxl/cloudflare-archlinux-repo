@@ -177,7 +177,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENCODE_CONFIG_CONTENT: >-
-            {"permission":{"external_directory":{"${{ runner.temp }}/*":"allow","*":"deny"}}}
+            {"permission":{"external_directory":{"*":"deny","${{ runner.temp }}/*":"allow"}}}
 
       - name: Upload AI review report
         if: always()
