@@ -175,6 +175,7 @@ jobs:
             FINAL_VERDICT: FAIL
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload AI review report
         if: always()

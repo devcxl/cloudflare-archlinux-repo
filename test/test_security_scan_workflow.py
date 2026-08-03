@@ -24,6 +24,9 @@ class SecurityScanWorkflowTests(unittest.TestCase):
 
         self.assertEqual(review_step['uses'], 'anomalyco/opencode/github@latest')
         self.assertIs(review_step['with']['use_github_token'], True)
+        self.assertEqual(
+            review_step['env']['GITHUB_TOKEN'], '${{ secrets.GITHUB_TOKEN }}'
+        )
         self.assertNotIn('continue-on-error', review_step)
 
     def test_security_scan_does_not_grant_pr_creation_permissions(self):
