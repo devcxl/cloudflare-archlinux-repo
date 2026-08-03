@@ -28,11 +28,19 @@ jobs:
     outputs:
       status: ${{ job.status }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Clone AUR source
         run: |
-          git clone --depth 1 "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
+          bash .github/clone-source-with-retry.sh \
+            "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
+
+      - name: Security audit PKGBUILD
+        uses: ./.github/pkgbuild-audit-action
+        with:
+          source-url: ${{ inputs.source-url }}
+          package-name: ${{ inputs.package-name }}
+          source-dir: ${{ env.SOURCE_DIR }}
 
       # gitleaks-action@v2 在非工作目录路径下对 results.sarif 处理有 bug
       # 改用 CLI 直调，更稳定可靠
@@ -60,11 +68,12 @@ jobs:
       status: ${{ job.status }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Clone AUR source
         run: |
-          git clone --depth 1 "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
+          bash .github/clone-source-with-retry.sh \
+            "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
 
       - name: Prepare source summary for AI
         id: source-summary
@@ -90,7 +99,6 @@ jobs:
       # 不会触发 action 的自动 push/PR；未授予 pull-requests 权限作为双保险。
       - name: OpenCode AI security review
         uses: anomalyco/opencode/github@latest
-        continue-on-error: true
         with:
           model: "opencode-go/deepseek-v4-pro"
           use_github_token: true
@@ -182,8 +190,8 @@ jobs:
         run: |
           REPORT_FILE="$RUNNER_TEMP/ai-review-report.md"
           if [ ! -f "$REPORT_FILE" ]; then
-            echo "⚠️ AI 审查报告缺失，跳过 Issue 创建"
-            exit 0
+            echo "::error::AI 审查报告缺失，阻断构建"
+            exit 1
           fi
 
           VERDICT="UNKNOWN"
@@ -193,6 +201,11 @@ jobs:
             VERDICT="PASS"
           fi
           echo "AI 审查判定: $VERDICT"
+
+          if [ "$VERDICT" = "UNKNOWN" ]; then
+            echo "::error::AI 审查结果无法识别，阻断构建"
+            exit 1
+          fi
 
           if [ "$VERDICT" = "FAIL" ]; then
             TITLE="[安全审查] ${{ inputs.package-name }} 发现安全问题"
@@ -210,7 +223,7 @@ jobs:
             exit 1
           fi
 
-          echo "✅ AI 审查已完成，无阻塞问题，继续构建"
+          echo "✅ AI 审查通过，继续构建"
 
   dependency-scan:
     name: "Layer 3 — Dependency & File Scan (Trivy)"
@@ -219,9 +232,11 @@ jobs:
     outputs:
       status: ${{ job.status }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Clone AUR source
-        run: git clone --depth 1 "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
+        run: |
+          bash .github/clone-source-with-retry.sh \
+            "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
       - name: Trivy — filesystem vulnerability scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -235,7 +250,7 @@ jobs:
 
       - name: Upload Trivy SARIF results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
           category: trivy-fs
@@ -262,7 +277,7 @@ jobs:
           echo "- **包名**: ${{ inputs.package-name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **源码**: ${{ inputs.source-url }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Layer 1 (Quick Gate)**: PASS" >> $GITHUB_STEP_SUMMARY
-          echo "- **Layer 2 (AI Review)**: 审查报告已上传（仅咨询参考）" >> $GITHUB_STEP_SUMMARY
+          echo "- **Layer 2 (AI Review)**: PASS" >> $GITHUB_STEP_SUMMARY
           echo "- **Layer 3 (Trivy Scan)**: PASS" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "已触发构建: \`build.yml\`" >> $GITHUB_STEP_SUMMARY

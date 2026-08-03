@@ -6,6 +6,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = ROOT / '.github' / 'workflows' / 'security-scan.yml'
+RETRY_SCRIPT_PATH = ROOT / '.github' / 'clone-source-with-retry.sh'
 
 
 class SecurityScanWorkflowTests(unittest.TestCase):
@@ -23,7 +24,7 @@ class SecurityScanWorkflowTests(unittest.TestCase):
 
         self.assertEqual(review_step['uses'], 'anomalyco/opencode/github@latest')
         self.assertIs(review_step['with']['use_github_token'], True)
-        self.assertEqual(review_step.get('continue-on-error'), True)
+        self.assertNotIn('continue-on-error', review_step)
 
     def test_security_scan_does_not_grant_pr_creation_permissions(self):
         permissions = self.workflow['permissions']
@@ -32,6 +33,29 @@ class SecurityScanWorkflowTests(unittest.TestCase):
         self.assertNotIn('pull-requests', permissions)
         self.assertNotIn('id-token', permissions)
         self.assertNotIn('pull-requests', job_permissions)
+
+    def test_quick_gate_audits_the_cloned_pkgbuild(self):
+        steps = self.workflow['jobs']['quick-gate']['steps']
+        audit_step = next(
+            step for step in steps if step.get('name') == 'Security audit PKGBUILD'
+        )
+
+        self.assertEqual(audit_step['uses'], './.github/pkgbuild-audit-action')
+        self.assertEqual(audit_step['with']['source-dir'], '${{ env.SOURCE_DIR }}')
+        self.assertEqual(audit_step['with']['package-name'], '${{ inputs.package-name }}')
+
+    def test_all_source_clones_use_retry_helper(self):
+        for job_name in ('quick-gate', 'ai-review', 'dependency-scan'):
+            steps = self.workflow['jobs'][job_name]['steps']
+            clone_step = next(
+                step for step in steps if step.get('name') == 'Clone AUR source'
+            )
+            self.assertIn('.github/clone-source-with-retry.sh', clone_step['run'])
+
+    def test_retry_helper_limits_each_clone_attempt(self):
+        script = RETRY_SCRIPT_PATH.read_text()
+
+        self.assertIn('timeout 60 git clone', script)
 
     def test_ai_review_job_can_create_issues(self):
         permissions = self.workflow['jobs']['ai-review'].get('permissions', {})
@@ -65,6 +89,16 @@ class SecurityScanWorkflowTests(unittest.TestCase):
         self.assertIn('exit 1', run)
         self.assertIn('gh issue list', run)
         self.assertIn('$RUNNER_TEMP/ai-review-report.md', run)
+
+    def test_ai_review_blocks_when_report_is_missing_or_unknown(self):
+        steps = self.workflow['jobs']['ai-review']['steps']
+        report_step = next(
+            step for step in steps if step.get('name') == 'Report AI review result'
+        )
+        run = report_step.get('run', '')
+
+        self.assertIn('AI 审查报告缺失，阻断构建', run)
+        self.assertIn('"$VERDICT" = "UNKNOWN"', run)
 
 
 if __name__ == '__main__':
