@@ -4,6 +4,10 @@
 # allowed-source-patterns 可选，声明 PKGBUILD 中 source URL 允许的 glob 模式白名单
 # 支持通配符 *（匹配任意字符）和 ?（匹配单个字符）
 packages:
+  - name: openchamber
+    url: https://aur.archlinux.org/openchamber.git
+    allowed-source-patterns:
+      - https://registry.npmjs.org/@openchamber/web/*
   - name: visual-studio-code-bin
     url: https://aur.archlinux.org/visual-studio-code-bin.git
     allowed-source-patterns:
