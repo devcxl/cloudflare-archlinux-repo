@@ -61,3 +61,8 @@ packages:
     url: https://aur.archlinux.org/fcitx5-voice-input.git
     allowed-source-patterns:
       - https://github.com/devcxl/fcitx5-voice-input/releases/download/*
+  - name: pi-coding-agent-bin
+    url: https://aur.archlinux.org/pi-coding-agent-bin.git
+    allowed-source-patterns:
+      - https://github.com/earendil-works/pi/releases/download/*
+      - https://raw.githubusercontent.com/earendil-works/pi/*
