@@ -70,3 +70,7 @@ packages:
     url: https://aur.archlinux.org/zcode-desktop-bin.git
     allowed-source-patterns:
       - https://cdn-zcode.z.ai/zcode/electron/releases/*
+  - name: minimax-hub-bin
+    url: https://aur.archlinux.org/minimax-hub-bin.git
+    allowed-source-patterns:
+      - https://filecdn.minimax.chat/public/minimax-hub/*
