@@ -68,6 +68,7 @@ packages:
     url: https://aur.archlinux.org/minimax-hub-bin.git
     patches:
       - .github/pkgbuild-patches/minimax-hub-bin/0001-7z-extract-skip-symlinks.patch
+      - .github/pkgbuild-patches/minimax-hub-bin/0002-find-appdir-exclude-macosx-metadata.patch
     allowed-source-patterns:
       - https://filecdn.minimax.chat/public/minimax-hub/*
   - name: cloudflare-wrangler
