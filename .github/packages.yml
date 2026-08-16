@@ -66,3 +66,7 @@ packages:
     allowed-source-patterns:
       - https://github.com/earendil-works/pi/releases/download/*
       - https://raw.githubusercontent.com/earendil-works/pi/*
+  - name: zcode-desktop-bin
+    url: https://aur.archlinux.org/zcode-desktop-bin.git
+    allowed-source-patterns:
+      - https://cdn-zcode.z.ai/zcode/electron/releases/*
