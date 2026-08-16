@@ -21,11 +21,6 @@ packages:
     url: https://aur.archlinux.org/opencode-bin.git
     allowed-source-patterns:
       - https://github.com/anomalyco/opencode/releases/download/*
-  - name: claude-code
-    url: https://aur.archlinux.org/claude-code.git
-    allowed-source-patterns:
-      - https://code.claude.com/*
-      - https://downloads.claude.ai/claude-code-releases/*
   - name: openai-codex-desktop
     url: https://aur.archlinux.org/openai-codex-desktop.git
     allowed-source-patterns:
