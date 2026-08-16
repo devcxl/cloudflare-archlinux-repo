@@ -97,6 +97,11 @@ npx wrangler r2 object put <bucket-name>/public-key.gpg --file=/path/to/public-k
 packages:
   - name: <包名>
     url: https://aur.archlinux.org/<包名>.git
+    allowed-source-patterns:
+      - https://<可信域名>/*
+    # 可选：构建前应用到克隆源码的修复补丁（相对仓库根目录）
+    # patches:
+    #   - .github/pkgbuild-patches/<包名>/0001-xxx.patch
 ```
 
 ### 手动构建

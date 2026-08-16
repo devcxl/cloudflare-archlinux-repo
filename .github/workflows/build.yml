@@ -29,11 +29,35 @@ jobs:
           source-url: ${{ github.event.inputs.source-url }}
           package-name: ${{ github.event.inputs.package-name }}
 
+      - name: Resolve package patches
+        id: resolve-patches
+        run: |
+          PATCHES=$(python3 - "${{ github.event.inputs.package-name }}" <<'EOF'
+          import sys
+          import yaml
+          try:
+              with open(".github/packages.yml") as f:
+                  data = yaml.safe_load(f)
+          except FileNotFoundError:
+              data = {}
+          name = sys.argv[1]
+          patches = []
+          for pkg in data.get("packages", []):
+              if isinstance(pkg, dict) and pkg.get("name") == name:
+                  patches = pkg.get("patches") or []
+                  break
+          print(" ".join(patches))
+          EOF
+          )
+          echo "patches=$PATCHES" >> "$GITHUB_OUTPUT"
+          echo "Package patches: ${PATCHES:-none}"
+
       - name: Build package
         uses: ./.github/build-aur-action
         with:
           package-name: ${{ github.event.inputs.package-name }}
           source-url: ${{ github.event.inputs.source-url }}
+          patches: ${{ steps.resolve-patches.outputs.patches }}
 
       - name: Cache package
         uses: actions/upload-artifact@v4

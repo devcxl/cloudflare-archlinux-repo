@@ -12,9 +12,14 @@ inputs:
     description: 'Git仓库URL'
     required: true
     default: 'https://aur.archlinux.org/localsend-bin.git'
+  patches:
+    description: '构建前应用到克隆源码的补丁路径列表（空格分隔，相对仓库根目录）'
+    required: false
+    default: ''
 runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
     - ${{ inputs.package-name }}
     - ${{ inputs.source-url }}
+    - ${{ inputs.patches }}

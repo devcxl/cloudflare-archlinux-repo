@@ -1,8 +1,10 @@
 # 监控的包列表
-# 条目格式：{name, url, allowed-source-patterns?}
+# 条目格式：{name, url, allowed-source-patterns?, patches?}
 # url 支持 aur.archlinux.org 或 github.com 等任意 git 仓库地址
 # allowed-source-patterns 可选，声明 PKGBUILD 中 source URL 允许的 glob 模式白名单
 # 支持通配符 *（匹配任意字符）和 ?（匹配单个字符）
+# patches 可选，构建前应用到克隆源码上的补丁文件路径列表（相对仓库根目录），
+# 用于修复上游 PKGBUILD 在构建环境中的问题（如 7z 对 macOS 符号链接的报错）
 packages:
   - name: openchamber
     url: https://aur.archlinux.org/openchamber.git
@@ -64,6 +66,8 @@ packages:
       - https://cdn-zcode.z.ai/zcode/electron/releases/*
   - name: minimax-hub-bin
     url: https://aur.archlinux.org/minimax-hub-bin.git
+    patches:
+      - .github/pkgbuild-patches/minimax-hub-bin/0001-7z-extract-skip-symlinks.patch
     allowed-source-patterns:
       - https://filecdn.minimax.chat/public/minimax-hub/*
   - name: cloudflare-wrangler
