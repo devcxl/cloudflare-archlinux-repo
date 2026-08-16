@@ -1,5 +1,5 @@
 name: 'PKGBUILD安全审计'
-description: '审计PKGBUILD文件，检测供应链攻击模式'
+description: '审计PKGBUILD、补丁及辅助脚本（.install/.sh/.service/.js/.py 等），检测供应链攻击模式'
 inputs:
   source-url:
     description: 'Git仓库URL'

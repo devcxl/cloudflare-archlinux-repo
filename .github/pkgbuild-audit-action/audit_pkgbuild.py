@@ -2,6 +2,11 @@
 """
 PKGBUILD 安全审计脚本
 
+审计范围：
+  - PKGBUILD（含架构特定 source/sha 数组）
+  - 补丁文件（*.patch / *.diff）
+  - 辅助脚本与配置文件（*.install / *.sh / *.service / *.desktop / *.js / *.py 等）
+
 检查 PKGBUILD 文件中的供应链攻击模式，分级处理：
   CRITICAL / ERROR → 阻断构建
   WARNING          → 仅告警，不阻断
@@ -199,6 +204,96 @@ def find_patch_files(repo_dir):
     return patches
 
 
+def _full_content_dangerous_rules():
+    """作用于完整文件内容的危险模式规则（适用于 PKGBUILD 及辅助脚本）。
+
+    返回 [(severity, rule_id, regex, description)]。
+    """
+    return [
+        (CRITICAL, 'curl-pipe-shell',
+         r'curl\s+\S+\s*\|\s*(?:ba)?sh\b', 'curl 管道到 shell 执行'),
+        (CRITICAL, 'wget-pipe-shell',
+         r'wget\s+\S+\s+-O\s*-\s*\|', 'wget 管道到 shell 执行'),
+        (CRITICAL, 'eval-exec',
+         r'\beval\s+', 'eval 命令执行'),
+        (CRITICAL, 'base64-decode',
+         r'base64\s+(?:-d|--decode)\b', 'base64 解码（疑似混淆）'),
+        (CRITICAL, 'reverse-shell',
+         r'(?:nc|ncat|netcat)\s+.*-e\b', '疑似反向 shell'),
+        (CRITICAL, 'destructive-rm',
+         r'rm\s+-rf\s+(?:/|/\*|~\s*/\*|\$HOME\s*/\*)', '危险删除命令'),
+        (CRITICAL, 'chmod-world-writable',
+         r'chmod\s+(?:-R\s+)?777\b', '设置全局可写权限'),
+        (ERROR, 'sudoers-modification',
+         r'[>\|]\s*/etc/sudoers(?:\.d/)?', '修改 sudoers 配置文件'),
+        (ERROR, 'create-system-user',
+         r'\b(?:useradd|groupadd|usermod)\b', '创建或修改系统用户/组'),
+        (ERROR, 'dd-write-device',
+         r'dd\s+if=.*\bof=/dev/', 'dd 写入块设备'),
+        (ERROR, 'hosts-modification',
+         r'[>\|]\s*/etc/hosts\b', '修改 /etc/hosts'),
+    ]
+
+
+# 辅助脚本/配置文件扩展名（除 PKGBUILD 与补丁外的审计范围）
+AUX_FILE_EXTENSIONS = (
+    '.install', '.sh', '.bash', '.zsh',
+    '.service', '.timer', '.socket', '.desktop',
+    '.mjs', '.js', '.ts', '.py',
+    '.conf', '.cfg',
+)
+
+# 跳过超大文件（避免扫描 vendor 产物），上限 512KB
+AUX_FILE_MAX_SIZE = 512 * 1024
+
+# 单个仓库最多审计的辅助文件数量
+AUX_FILE_MAX_COUNT = 50
+
+# 跳过依赖/构建产物目录
+AUX_FILE_EXCLUDED_DIRS = {'.git', 'node_modules', '__pycache__', 'dist', 'build'}
+
+
+def find_aux_files(repo_dir):
+    """查找 PKGBUILD 之外的辅助脚本/配置文件（.install/.sh/.service 等）。
+
+    返回 {相对路径: 文件内容}，跳过二进制、超大文件及依赖目录。
+    """
+    aux = {}
+    repo = Path(repo_dir)
+    count = 0
+    for ext in AUX_FILE_EXTENSIONS:
+        for path in repo.rglob(f'*{ext}'):
+            rel_parts = path.relative_to(repo).parts
+            if any(part in AUX_FILE_EXCLUDED_DIRS for part in rel_parts):
+                continue
+            if not path.is_file() or path.stat().st_size > AUX_FILE_MAX_SIZE:
+                continue
+            if count >= AUX_FILE_MAX_COUNT:
+                return aux
+            try:
+                content = path.read_text(encoding='utf-8', errors='replace')
+            except Exception:
+                continue
+            if '\x00' in content:
+                continue  # 二进制文件
+            aux[str(path.relative_to(repo))] = content
+            count += 1
+    return aux
+
+
+def run_aux_file_checks(aux_contents):
+    """对辅助脚本/配置文件执行危险模式检查。
+
+    返回 [(severity, rule_id, description)]，描述中附文件名。
+    """
+    issues = []
+    for filename, content in aux_contents.items():
+        for severity, rule_id, pattern, desc in _full_content_dangerous_rules():
+            if re.search(pattern, content, re.IGNORECASE):
+                issues.append((severity, rule_id, f'{desc}（{filename}）'))
+    return issues
+
+
 def _glob_to_regex(pattern):
     """将 glob 模式转换为正则表达式。* 匹配任意字符，? 匹配单个字符。"""
     regex = ''
@@ -261,108 +356,34 @@ def run_checks(content, allowed_patterns, patch_contents=None):
 
     issues = []
 
-    # ── CRITICAL ──────────────────────────────────────────────
+    # ── CRITICAL / ERROR（完整文件内容） ─────────────────────
 
-    critical_rules = [
-        (
-            'curl-pipe-shell',
-            r'curl\s+\S+\s*\|\s*(?:ba)?sh\b',
-            'curl 管道到 shell 执行',
-            'full',
-        ),
-        (
-            'wget-pipe-shell',
-            r'wget\s+\S+\s+-O\s*-\s*\|',
-            'wget 管道到 shell 执行',
-            'full',
-        ),
-        (
-            'eval-exec',
-            r'\beval\s+',
-            'eval 命令执行',
-            'full',
-        ),
-        (
-            'base64-decode',
-            r'base64\s+(?:-d|--decode)\b',
-            'base64 解码（疑似混淆）',
-            'full',
-        ),
-        (
-            'reverse-shell',
-            r'(?:nc|ncat|netcat)\s+.*-e\b',
-            '疑似反向 shell',
-            'full',
-        ),
-        (
-            'destructive-rm',
-            r'rm\s+-rf\s+(?:/|/\*|~\s*/\*|\$HOME\s*/\*)',
-            '危险删除命令',
-            'full',
-        ),
-        (
-            'chmod-world-writable',
-            r'chmod\s+(?:-R\s+)?777\b',
-            '设置全局可写权限',
-            'full',
-        ),
-    ]
+    for severity, rule_id, pattern, desc in _full_content_dangerous_rules():
+        if re.search(pattern, content, re.IGNORECASE):
+            issues.append((severity, rule_id, desc))
 
-    for rule_id, pattern, desc, scope in critical_rules:
-        target = _select_scope(content, sources_text, checksums_text, checksums_vars_text, scope)
-        if re.search(pattern, target, re.IGNORECASE):
-            issues.append((CRITICAL, rule_id, desc))
+    # ── ERROR（仅 source URL） ────────────────────────────────
 
-    # ── ERROR ─────────────────────────────────────────────────
-
-    error_rules = [
+    source_url_rules = [
         (
             'source-raw-ip',
             r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b',
             'source URL 包含裸 IP 地址',
-            'source',
         ),
         (
             'source-file-protocol',
             r"^file://",
             'source URL 使用 file:// 协议',
-            'source',
         ),
         (
             'source-git-insecure',
             r"^git://",
             'source URL 使用不安全的 git:// 协议',
-            'source',
-        ),
-        (
-            'sudoers-modification',
-            r'[>\|]\s*/etc/sudoers(?:\.d/)?',
-            '修改 sudoers 配置文件',
-            'full',
-        ),
-        (
-            'create-system-user',
-            r'\b(?:useradd|groupadd|usermod)\b',
-            '创建或修改系统用户/组',
-            'full',
-        ),
-        (
-            'dd-write-device',
-            r'dd\s+if=.*\bof=/dev/',
-            'dd 写入块设备',
-            'full',
-        ),
-        (
-            'hosts-modification',
-            r'[>\|]\s*/etc/hosts\b',
-            '修改 /etc/hosts',
-            'full',
         ),
     ]
 
-    for rule_id, pattern, desc, scope in error_rules:
-        target = _select_scope(content, sources_text, checksums_text, checksums_vars_text, scope)
-        if re.search(pattern, target, re.IGNORECASE):
+    for rule_id, pattern, desc in source_url_rules:
+        if re.search(pattern, sources_text, re.IGNORECASE):
             issues.append((ERROR, rule_id, desc))
 
     # ── 上游 URL 模式白名单检查 ───────────────────────────────
@@ -560,10 +581,22 @@ def main():
     else:
         print("补丁文件: 无")
 
+    aux_files = find_aux_files(repo_dir)
+    if aux_files:
+        print(f"辅助脚本/配置文件: {', '.join(aux_files.keys())}")
+    else:
+        print("辅助脚本/配置文件: 无")
+
     print()
 
     content = pkgbuild_path.read_text(encoding='utf-8', errors='replace')
     issues, has_blocking = run_checks(content, allowed_patterns, patch_files)
+
+    aux_issues = run_aux_file_checks(aux_files)
+    issues.extend(aux_issues)
+    has_blocking = has_blocking or any(
+        sev in (CRITICAL, ERROR) for sev, _, _ in aux_issues
+    )
 
     if not issues:
         print("结果: 未发现安全问题")

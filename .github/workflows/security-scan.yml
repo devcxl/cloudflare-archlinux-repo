@@ -84,9 +84,13 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
           FILES=$(find "${{ env.SOURCE_DIR }}" -type f \
-            \( -name 'PKGBUILD' -o -name '*.install' -o -name '*.patch' \
-               -o -name '*.sh' -o -name '*.service' -o -name '*.conf' -o -name '*.cfg' \) \
-            | head -20)
+            \( -name 'PKGBUILD' -o -name '.SRCINFO' \
+               -o -name '*.install' -o -name '*.patch' -o -name '*.diff' \
+               -o -name '*.sh' -o -name '*.bash' -o -name '*.zsh' \
+               -o -name '*.service' -o -name '*.timer' -o -name '*.socket' \
+               -o -name '*.desktop' -o -name '*.conf' -o -name '*.cfg' \
+               -o -name '*.mjs' -o -name '*.js' -o -name '*.ts' -o -name '*.py' \) \
+            | head -30)
           for f in $FILES; do
             echo "---" >> $GITHUB_STEP_SUMMARY
             echo "**$f**" >> $GITHUB_STEP_SUMMARY
@@ -114,6 +118,21 @@ jobs:
             2. 不要修改、创建或删除 git 工作区中的任何文件。
             3. 审查完成后，将完整的 Markdown 审查报告写入文件 `${{ runner.temp }}/ai-review-report.md`，并在报告末尾单独一行输出 FINAL_VERDICT 判定。
 
+            ## 文件审查范围（必须遵守）
+
+            1. 审查开始后，先执行 `find ${{ env.SOURCE_DIR }} -type f` 列出源码目录全部文件。
+            2. 必须**逐个读取**以下类型的全部文件（有则必读，不得遗漏）：
+               - `PKGBUILD` 和 `.SRCINFO`
+               - 所有 `*.install` 安装钩子脚本（post_install / post_upgrade / pre_remove 等）
+               - 所有 `*.sh` / `*.bash` / `*.zsh` 启动或辅助脚本
+               - 所有 `*.patch` / `*.diff` 补丁文件
+               - 所有 `*.service` / `*.timer` / `*.socket` systemd 单元
+               - 所有 `*.desktop` 桌面入口文件
+               - 所有 `*.js` / `*.mjs` / `*.ts` 辅助脚本（重点关注会修改应用内容/asar 包的补丁脚本）
+               - 所有 `*.py` 辅助脚本
+               - 其余所有文本类型文件（仅 LICENSE / README 等纯文档文件可跳过）
+            3. 报告中必须包含「已审计文件清单」，逐一列出实际读取过的文件路径；未能读取的文件必须标注「未审计」并说明原因。
+
             ## 审查要求
 
             请逐个检查以下安全维度，对每个维度给出 PASS / WARN / FAIL 判定：
@@ -135,7 +154,10 @@ jobs:
             - 是否有硬编码 API Key、Token、密码、私钥？
 
             ### 5. 已知漏洞模式（Known Vulnerability Patterns）
-            - `.patch`、`.service` 等文件是否有安全问题？
+            - `.patch` 文件内容是否有引入安全漏洞的修改？
+            - `.service` / `.timer` 等 systemd 单元文件是否以 `root` 运行但无安全加固（`ProtectSystem`, `NoNewPrivileges` 等）？
+            - 是否包含 SUID 二进制或 `setcap` 操作？
+            - `*.js` / `*.mjs` / `*.py` 辅助补丁脚本是否修改应用内容以植入后门、窃取凭据或绕过安全机制？
 
             ### 6. 供应链风险（Supply Chain Risk）
             - source URL 是否可信？`validpgpkeys` 是否明确？
@@ -162,6 +184,13 @@ jobs:
             | 敏感信息泄露 | PASS/WARN/FAIL | ... |
             | 已知漏洞模式 | PASS/WARN/FAIL | ... |
             | 供应链风险 | PASS/WARN/FAIL | ... |
+
+            ## 已审计文件清单
+
+            | 文件路径 | 状态 | 说明 |
+            |----------|------|------|
+
+            (逐一列出源码目录中所有应审计文件及其读取状态；未审计文件标注「未审计」并说明原因)
 
             ## 发现的问题
 
