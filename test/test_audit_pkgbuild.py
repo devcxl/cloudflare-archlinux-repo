@@ -49,6 +49,32 @@ class ExtractSourcesTests(unittest.TestCase):
         sources = self.module.extract_sources(content)
         self.assertEqual(sources, [])
 
+    def test_arch_specific_sources_merged(self):
+        content = """source=('LICENSE::https://example.com/LICENSE')
+source_x86_64=('pkg.deb::https://example.com/pkg-x64.deb')
+source_aarch64=('pkg.deb::https://example.com/pkg-arm64.deb')"""
+        sources = self.module.extract_sources(content)
+        self.assertEqual(sources, [
+            'LICENSE::https://example.com/LICENSE',
+            'pkg.deb::https://example.com/pkg-x64.deb',
+            'pkg.deb::https://example.com/pkg-arm64.deb',
+        ])
+
+    def test_arch_specific_sources_only(self):
+        content = """source_x86_64=('pkg.deb::https://example.com/pkg-x64.deb')
+source_aarch64=('pkg.deb::https://example.com/pkg-arm64.deb')"""
+        sources = self.module.extract_sources(content)
+        self.assertEqual(sources, [
+            'pkg.deb::https://example.com/pkg-x64.deb',
+            'pkg.deb::https://example.com/pkg-arm64.deb',
+        ])
+
+    def test_source_like_names_not_matched(self):
+        # 类似 source 的变量名（如 sources）不应被误提取
+        content = "sources=('https://example.com/not-a-real-var')"
+        sources = self.module.extract_sources(content)
+        self.assertEqual(sources, [])
+
 
 class ExtractChecksumsTests(unittest.TestCase):
     def setUp(self):
@@ -76,6 +102,14 @@ md5sums=('ghi')"""
         content = "pkgname=test"
         cs = self.module.extract_checksums(content)
         self.assertEqual(cs, {})
+
+    def test_arch_specific_checksums_merged(self):
+        content = """sha256sums=('abc123')
+sha256sums_x86_64=('def456')
+sha256sums_aarch64=('ghi789')"""
+        cs = self.module.extract_checksums(content)
+        self.assertIn('sha256sums', cs)
+        self.assertEqual(cs['sha256sums'], ['abc123', 'def456', 'ghi789'])
 
 
 class ExtractSourceUrlsTests(unittest.TestCase):
@@ -331,6 +365,44 @@ source=('https://github.com/devcxl/${pkgname}/archive/refs/tags/v${pkgver}.tar.g
         issues, blocking = self._run(content, allowed_patterns=patterns)
         self.assertFalse(blocking)
         self.assert_no_issue(issues, 'source-patterns-mismatch')
+
+    def test_pattern_match_expands_custom_static_variables(self):
+        # 自定义静态标量（如 _npmname=wrangler）应参与 URL 展开
+        content = """_npmname=wrangler
+pkgver=4.123.0
+source=("$_npmname-$pkgver.tgz::https://registry.npmjs.org/$_npmname/-/$_npmname-$pkgver.tgz")"""
+        patterns = ['https://registry.npmjs.org/wrangler/*']
+        issues, blocking = self._run(content, allowed_patterns=patterns)
+        self.assertFalse(blocking)
+        self.assert_no_issue(issues, 'source-patterns-mismatch')
+
+    def test_pattern_match_custom_variable_dynamic_assignment_not_expanded(self):
+        # 变量被动态赋值（含 $）时不应展开，URL 保留原样导致白名单不匹配
+        content = """_npmname=wrangler
+_npmname="$(get_name)"
+source=("https://registry.npmjs.org/$_npmname/-/$_npmname-$pkgver.tgz")"""
+        patterns = ['https://registry.npmjs.org/wrangler/*']
+        issues, blocking = self._run(content, allowed_patterns=patterns)
+        self.assertTrue(blocking)
+        self.assert_has_issue(issues, 'source-patterns-mismatch', 'ERROR')
+
+    def test_arch_specific_source_urls_checked_against_whitelist(self):
+        content = """pkgver=3.7.7
+source_x86_64=('pkg.deb::https://cdn-zcode.z.ai/zcode/electron/releases/${pkgver}/linux-x64/pkg.deb')
+source_aarch64=('pkg.deb::https://cdn-zcode.z.ai/zcode/electron/releases/${pkgver}/linux-arm64/pkg.deb')"""
+        patterns = ['https://cdn-zcode.z.ai/zcode/electron/releases/*']
+        issues, blocking = self._run(content, allowed_patterns=patterns)
+        self.assertFalse(blocking)
+        self.assert_no_issue(issues, 'source-patterns-mismatch')
+
+    def test_arch_specific_source_urls_mismatch_blocks(self):
+        content = """pkgver=3.7.7
+source_x86_64=('pkg.deb::https://cdn-zcode.z.ai/zcode/electron/releases/${pkgver}/linux-x64/pkg.deb')
+source_aarch64=('pkg.deb::https://evil.example.com/zcode/pkg.deb')"""
+        patterns = ['https://cdn-zcode.z.ai/zcode/electron/releases/*']
+        issues, blocking = self._run(content, allowed_patterns=patterns)
+        self.assertTrue(blocking)
+        self.assert_has_issue(issues, 'source-patterns-mismatch', 'ERROR')
 
     def test_pattern_mismatch_typosquatting(self):
         content = "source=('https://github.com/anommalyco/opencode/releases/download/v1.0/pkg.deb')"

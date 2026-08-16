@@ -25,16 +25,8 @@ ERROR = "ERROR"
 WARNING = "WARNING"
 
 
-def _extract_bash_array(content, varname):
-    """从 PKGBUILD 中提取 bash 数组变量的值列表。"""
-    pattern = re.compile(
-        r'\b' + re.escape(varname) + r'\s*=\s*\(((?:[^()]|\([^)]*\))*)\)',
-        re.DOTALL
-    )
-    match = pattern.search(content)
-    if not match:
-        return []
-    body = match.group(1)
+def _parse_bash_array_body(body):
+    """解析 bash 数组体，返回条目列表（支持引号、转义、嵌套括号）。"""
     items = []
     current = []
     in_quote = None
@@ -65,19 +57,32 @@ def _extract_bash_array(content, varname):
     return [it for it in items if it and not it.startswith('#')]
 
 
+def _extract_bash_array_variants(content, varname):
+    """提取指定数组及其架构特定变体（如 source_x86_64、sha256sums_aarch64）的全部条目。"""
+    pattern = re.compile(
+        r'\b' + re.escape(varname) + r'(?:_[A-Za-z0-9_]+)?\s*=\s*\(((?:[^()]|\([^)]*\))*)\)',
+        re.DOTALL
+    )
+    items = []
+    for match in pattern.finditer(content):
+        items.extend(_parse_bash_array_body(match.group(1)))
+    return items
+
+
 def extract_sources(content):
-    return _extract_bash_array(content, 'source')
+    """提取 source 及所有架构特定 source 数组（source_x86_64、source_aarch64 等）。"""
+    return _extract_bash_array_variants(content, 'source')
 
 
 def extract_checksums(content):
-    """提取所有校验和数组，返回 {变量名: [值列表]}。"""
+    """提取所有校验和数组（含架构特定变体），返回 {变量名: [值列表]}。"""
     checksum_vars = [
         'sha256sums', 'sha512sums', 'sha384sums', 'sha224sums',
         'sha1sums', 'md5sums', 'b2sums',
     ]
     result = {}
     for v in checksum_vars:
-        values = _extract_bash_array(content, v)
+        values = _extract_bash_array_variants(content, v)
         if values:
             result[v] = values
     return result
@@ -98,7 +103,11 @@ def extract_source_urls(sources):
 
 
 def _extract_static_pkgbuild_variables(content):
-    """提取可安全替换的静态 PKGBUILD 标量，不执行 shell。"""
+    """提取可安全替换的静态 PKGBUILD 标量，不执行 shell。
+
+    包含标准变量（pkgname/pkgver/pkgrel/epoch）以及自定义静态标量
+    （如 _npmname=wrangler），用于展开 source URL 中的变量引用。
+    """
     variables = {}
     for name in ('pkgname', 'pkgver', 'pkgrel', 'epoch'):
         match = re.search(
@@ -108,6 +117,26 @@ def _extract_static_pkgbuild_variables(content):
         )
         if match:
             variables[name] = next(value for value in match.groups() if value is not None)
+    # 自定义静态标量：仅接受纯字符串/数字赋值，不包含命令替换等动态内容。
+    # 若同一变量在文件其他位置被动态赋值（含 $、反引号、命令替换），
+    # 则放弃展开该变量，避免替换结果与 bash 实际求值不一致。
+    custom_candidates = {}
+    dynamic_names = set()
+    for match in re.finditer(
+        r'^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"([^"\n]*)"|\'([^\'\n]*)\'|([^\s#(][^\s#]*))',
+        content,
+        re.MULTILINE,
+    ):
+        name = match.group(1)
+        value = next(v for v in match.groups()[1:] if v is not None)
+        if re.search(r'[$`\\]|\$\{', value):
+            dynamic_names.add(name)
+            custom_candidates.pop(name, None)
+        elif name not in custom_candidates:
+            custom_candidates[name] = value
+    for name, value in custom_candidates.items():
+        if name not in variables and name not in dynamic_names:
+            variables[name] = value
     return variables
 
 

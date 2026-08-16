@@ -40,6 +40,7 @@ packages:
     url: https://aur.archlinux.org/hysteria-bin.git
     allowed-source-patterns:
       - https://github.com/apernet/hysteria/releases/download/*
+      - https://raw.githubusercontent.com/apernet/hysteria/*
   - name: localsend-bin
     url: https://aur.archlinux.org/localsend-bin.git
     allowed-source-patterns:
@@ -74,3 +75,8 @@ packages:
     url: https://aur.archlinux.org/minimax-hub-bin.git
     allowed-source-patterns:
       - https://filecdn.minimax.chat/public/minimax-hub/*
+  - name: cloudflare-wrangler
+    url: https://aur.archlinux.org/cloudflare-wrangler.git
+    allowed-source-patterns:
+      - https://registry.npmjs.org/wrangler/*
+      - https://raw.githubusercontent.com/cloudflare/workers-sdk/*
