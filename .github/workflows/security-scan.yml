@@ -102,7 +102,9 @@ jobs:
       # action 自行处理安装/缓存；报告写入 runner.temp（git 工作区外）保持工作区干净，
       # 不会触发 action 的自动 push/PR；未授予 pull-requests 权限作为双保险。
       - name: OpenCode AI security review
-        uses: anomalyco/opencode/github@latest
+        # 固定版本：@latest 会在 action 内部 curl GitHub API 查最新 release，
+        # 未认证请求易被限流导致 action 启动即失败（见 run 32002305077），固定 tag 以消除不确定性。
+        uses: anomalyco/opencode/github@v1.18.18
         with:
           model: "opencode-go/deepseek-v4-pro"
           use_github_token: true

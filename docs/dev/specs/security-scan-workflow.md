@@ -193,7 +193,7 @@ jobs:
           done
 
       - name: OpenCode AI security review
-        uses: anomalyco/opencode/github@latest
+        uses: anomalyco/opencode/github@v1.18.18
         with:
           model: "anthropic/claude-sonnet-4-20250514"
           prompt: |
@@ -527,7 +527,7 @@ gh workflow run security-scan.yml \
 
 | 编号 | 假设 | 待确认 |
 |------|------|--------|
-| A1 | `anomalyco/opencode/github@latest` Action 支持 `prompt` 参数和 `agent` 参数 | 需在 Phase 3 实施前验证 Action 的实际接口，可能需调整参数名 |
+| A1 | `anomalyco/opencode/github@v1.18.18` Action 支持 `prompt` 参数和 `agent` 参数 | 需在 Phase 3 实施前验证 Action 的实际接口，可能需调整参数名 |
 | A2 | `GITHUB_TOKEN` 默认权限足以触发同仓库的 `workflow_dispatch` | 已验证：需要 `actions: write` 权限 |
 | A3 | Anthropic API 单次调用延迟在 1-3 分钟内可返回结果 | Phase 3 测试时验证并调整 timeout |
 | A4 | `.gitleaks.toml` 暂不需要自定义规则，使用默认规则即可 | Phase 1 实施时根据首次扫描结果决定 |

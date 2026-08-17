@@ -24,7 +24,7 @@ branch: "feat/ai-review-job"
 
 1. `ai-review` job 包含源码摘要生成步骤（输出到 `$GITHUB_STEP_SUMMARY`）
 2. 源码摘要包含：文件列表 + 核心文件（PKGBUILD, *.install, *.patch, *.sh, *.service, *.conf, *.cfg）的行数
-3. `ai-review` job 包含 OpenCode AI 审查步骤，使用 `anomalyco/opencode/github@latest`
+3. `ai-review` job 包含 OpenCode AI 审查步骤，使用 `anomalyco/opencode/github@v1.18.18`
 4. AI 审查使用模型 `anthropic/claude-sonnet-4-20250514`
 5. AI 审查 prompt 覆盖 6 个安全维度（源码完整性、构建脚本安全、依赖安全、敏感信息泄露、已知漏洞模式、供应链风险）
 6. AI 审查使用 `agent: architect`
@@ -44,7 +44,7 @@ branch: "feat/ai-review-job"
    - 用 `find` 筛选核心文件类型，输出每个文件的行数
    - 输出到 `$GITHUB_STEP_SUMMARY`
 6. 添加 OpenCode AI 审查步骤：
-   - `uses: anomalyco/opencode/github@latest`
+   - `uses: anomalyco/opencode/github@v1.18.18`
    - 配置 `model`、`prompt`、`agent` 参数
    - 设置 `ANTHROPIC_API_KEY` 环境变量
    - Prompt 内容参考技术方案第 3 节 `ai-review` job 中的完整 prompt
@@ -61,7 +61,7 @@ branch: "feat/ai-review-job"
 
 ## 注意事项
 
-- **假设 A1**（技术方案第 10 节）：`anomalyco/opencode/github@latest` 的 `prompt` 和 `agent` 参数需在实施前验证。如果 Action 接口不同，需调整参数名
+- **假设 A1**（技术方案第 10 节）：`anomalyco/opencode/github@v1.18.18` 的 `prompt` 和 `agent` 参数需在实施前验证。如果 Action 接口不同，需调整参数名
 - AI 审查失败不应阻塞构建（当前设计中，AI 审查失败会阻止 trigger-build；后续 Phase 3 测试后可考虑增加 "allow-failure" 选项）
 - `ANTHROPIC_API_KEY` secret 需提前在 GitHub Repository Settings → Secrets 中配置
 
