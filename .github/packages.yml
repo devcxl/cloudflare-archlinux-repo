@@ -64,13 +64,6 @@ packages:
     url: https://aur.archlinux.org/zcode-desktop-bin.git
     allowed-source-patterns:
       - https://cdn-zcode.z.ai/zcode/electron/releases/*
-  - name: minimax-hub-bin
-    url: https://aur.archlinux.org/minimax-hub-bin.git
-    patches:
-      - .github/pkgbuild-patches/minimax-hub-bin/0001-7z-extract-skip-symlinks.patch
-      - .github/pkgbuild-patches/minimax-hub-bin/0002-find-appdir-exclude-macosx-metadata.patch
-    allowed-source-patterns:
-      - https://filecdn.minimax.chat/public/minimax-hub/*
   - name: cloudflare-wrangler
     url: https://aur.archlinux.org/cloudflare-wrangler.git
     allowed-source-patterns:
