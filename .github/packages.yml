@@ -69,3 +69,11 @@ packages:
     allowed-source-patterns:
       - https://registry.npmjs.org/wrangler/*
       - https://raw.githubusercontent.com/cloudflare/workers-sdk/*
+  - name: agent-browser
+    url: https://aur.archlinux.org/agent-browser.git
+    allowed-source-patterns:
+      - https://registry.npmjs.org/agent-browser/*
+  - name: playwright-cli
+    url: https://aur.archlinux.org/playwright-cli.git
+    allowed-source-patterns:
+      - https://registry.npmjs.org/@playwright/cli/*
