@@ -10,120 +10,20 @@ signature files. It does not modify the repository database.
 import os
 import re
 import sys
+from pathlib import Path
+
+# 版本比较逻辑统一收口到 lib/version.py，消除三处重复实现，并与 pacman vercmp 语义对齐
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from lib.version import (  # noqa: E402
+    compare_versions,
+    parse_arch_version,
+    parse_package_filename,
+)
 
 import boto3
 
 
 PACKAGE_PREFIX = 'packages/'
-
-
-def parse_arch_version(version_string):
-    """Parse Arch Linux package version string for comparison."""
-    if ':' in version_string:
-        epoch_str, version_string = version_string.split(':', 1)
-        try:
-            epoch = int(epoch_str)
-        except ValueError:
-            epoch = 0
-    else:
-        epoch = 0
-
-    if '-' in version_string:
-        pkgver, pkgrel_str = version_string.rsplit('-', 1)
-        try:
-            pkgrel = int(pkgrel_str)
-        except ValueError:
-            pkgrel = 0
-    else:
-        pkgver = version_string
-        pkgrel = 0
-
-    pkgver_parts = []
-    current = ''
-    for char in pkgver:
-        if char.isalpha():
-            if current:
-                pkgver_parts.append((0, current))
-                current = ''
-            pkgver_parts.append((1, char))
-        elif char.isdigit():
-            current += char
-        else:
-            if current:
-                pkgver_parts.append((0, current))
-                current = ''
-            pkgver_parts.append((2, char))
-
-    if current:
-        pkgver_parts.append((0, current))
-
-    return epoch, pkgver_parts, pkgrel
-
-
-def compare_versions(v1, v2):
-    """Compare two Arch Linux version strings."""
-    parsed1 = parse_arch_version(v1)
-    parsed2 = parse_arch_version(v2)
-
-    if parsed1[0] != parsed2[0]:
-        return 1 if parsed1[0] > parsed2[0] else -1
-
-    for i in range(min(len(parsed1[1]), len(parsed2[1]))):
-        type1, val1 = parsed1[1][i]
-        type2, val2 = parsed2[1][i]
-
-        if type1 == type2:
-            if type1 == 0:
-                try:
-                    num1 = int(val1)
-                    num2 = int(val2)
-                    if num1 != num2:
-                        return 1 if num1 > num2 else -1
-                except ValueError:
-                    if val1 != val2:
-                        return 1 if val1 > val2 else -1
-            elif val1 != val2:
-                return 1 if val1 > val2 else -1
-        else:
-            return 1 if type1 > type2 else -1
-
-    if len(parsed1[1]) != len(parsed2[1]):
-        return 1 if len(parsed1[1]) > len(parsed2[1]) else -1
-
-    if parsed1[2] != parsed2[2]:
-        return 1 if parsed1[2] > parsed2[2] else -1
-
-    return 0
-
-
-def parse_package_filename(filename):
-    """Parse package filename into (name, version, arch)."""
-    if not filename.endswith('.pkg.tar.zst'):
-        return None
-
-    base = filename[:-len('.pkg.tar.zst')]
-    arch_match = re.search(r'-(x86_64|i686|armv7h|aarch64|any)$', base)
-    if not arch_match:
-        return None
-
-    arch = arch_match.group(1)
-    base = base[:arch_match.start()]
-
-    version_match = re.search(r'-\d+(\.\d+)*', base)
-    if not version_match:
-        return None
-
-    version_start = version_match.start() + 1
-    version = base[version_start:]
-    name = base[:version_match.start()]
-
-    if not re.match(r'^[a-zA-Z0-9@._+-]+$', name):
-        return None
-
-    if not re.match(r'^[a-zA-Z0-9_]+$', arch):
-        return None
-
-    return name, version, arch
 
 
 def get_latest_versions(client, bucket, prefix=PACKAGE_PREFIX):

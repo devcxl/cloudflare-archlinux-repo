@@ -24,7 +24,7 @@ class SecurityScanWorkflowTests(unittest.TestCase):
     def test_ai_review_uses_github_action_with_token(self):
         review_step = self._review_step()
 
-        self.assertEqual(review_step['uses'], 'anomalyco/opencode/github@v1.18.18')
+        self.assertEqual(review_step['uses'], 'anomalyco/opencode/github@31406ccc51b4bd2a4e1e086b2bcaa5f7f804f26d')
         self.assertIs(review_step['with']['use_github_token'], True)
         self.assertEqual(
             review_step['env']['GITHUB_TOKEN'], '${{ secrets.GITHUB_TOKEN }}'

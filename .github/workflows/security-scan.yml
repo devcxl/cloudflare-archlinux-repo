@@ -28,7 +28,7 @@ jobs:
     outputs:
       status: ${{ job.status }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: Clone AUR source
         run: |
@@ -43,15 +43,20 @@ jobs:
           source-dir: ${{ env.SOURCE_DIR }}
 
       # gitleaks-action@v2 在非工作目录路径下对 results.sarif 处理有 bug
-      # 改用 CLI 直调，更稳定可靠
+      # 改用 CLI 直调，更稳定可靠；下载后先校验 SHA256 再解压
       - name: Gitleaks — secret scan
         run: |
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
+          GITLEAKS_VERSION=8.24.3
+          GITLEAKS_ARCHIVE="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${GITLEAKS_ARCHIVE}" -o "/tmp/${GITLEAKS_ARCHIVE}"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt" -o /tmp/checksums.txt
+          (cd /tmp && grep "${GITLEAKS_ARCHIVE}" checksums.txt > expected.sha256 && sha256sum -c expected.sha256)
+          tar -xzf "/tmp/${GITLEAKS_ARCHIVE}" -C /usr/local/bin gitleaks
           cd "${{ env.SOURCE_DIR }}"
           gitleaks detect --no-git --source=. --verbose --redact --exit-code 1
 
       - name: Semgrep — SAST scan
-        uses: semgrep/semgrep-action@v1
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d
         with:
           config: auto
           target: ${{ env.SOURCE_DIR }}
@@ -68,7 +73,7 @@ jobs:
       status: ${{ job.status }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: Clone AUR source
         run: |
@@ -102,9 +107,9 @@ jobs:
       # action 自行处理安装/缓存；报告写入 runner.temp（git 工作区外）保持工作区干净，
       # 不会触发 action 的自动 push/PR；未授予 pull-requests 权限作为双保险。
       - name: OpenCode AI security review
-        # 固定版本：@latest 会在 action 内部 curl GitHub API 查最新 release，
-        # 未认证请求易被限流导致 action 启动即失败（见 run 32002305077），固定 tag 以消除不确定性。
-        uses: anomalyco/opencode/github@v1.18.18
+        # 固定到具体 commit SHA（原 @latest 会在 action 内部 curl GitHub API 查最新 release，
+        # 未认证请求易被限流导致 action 启动即失败；见 run 32002305077），彻底消除可变标签的供应链风险。
+        uses: anomalyco/opencode/github@31406ccc51b4bd2a4e1e086b2bcaa5f7f804f26d
         with:
           model: "opencode-go/deepseek-v4-pro"
           use_github_token: true
@@ -212,7 +217,7 @@ jobs:
 
       - name: Upload AI review report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ai-review-report-${{ inputs.package-name }}
           path: ${{ runner.temp }}/ai-review-report.md
@@ -266,13 +271,13 @@ jobs:
     outputs:
       status: ${{ job.status }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Clone AUR source
         run: |
           bash .github/clone-source-with-retry.sh \
             "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
       - name: Trivy — filesystem vulnerability scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
         with:
           scan-type: fs
           scan-ref: ${{ env.SOURCE_DIR }}
@@ -284,7 +289,7 @@ jobs:
 
       - name: Upload Trivy SARIF results
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@4c0873ef8656cb3c50b3f42fb63bc1ade0cfa827
         with:
           sarif_file: trivy-results.sarif
           category: trivy-fs

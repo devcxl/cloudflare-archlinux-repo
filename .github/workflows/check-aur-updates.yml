@@ -6,14 +6,15 @@ on:
   workflow_dispatch:
 
 permissions:
+  # 仅需要 actions: write 触发下游 workflow；全程只读仓库，无需 contents: write
   actions: write
-  contents: write
+  contents: read
 
 jobs:
   check-updates:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: Read packages list
         id: read-packages

@@ -16,11 +16,30 @@ on:
         required: false
         default: "false"
 
+# 串行化所有构建：每次构建都对 R2 共享仓库数据库做“下载快照→重建→上传→清理”，
+# 并发会导致数据库与包文件不一致（竞态），故强制排队、不取消进行中的构建。
+concurrency:
+  group: repo-db-build
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Validate inputs
+        run: |
+          NAME="${{ github.event.inputs.package-name }}"
+          URL="${{ github.event.inputs.source-url }}"
+          if [[ ! "$NAME" =~ ^[a-zA-Z0-9@_+][a-zA-Z0-9@._+-]*$ ]]; then
+            echo "::error::非法 package-name: $NAME" >&2
+            exit 1
+          fi
+          if [[ ! "$URL" =~ ^https://([^/]+\.)?(aur\.archlinux\.org|github\.com|gitlab\.com)/ ]]; then
+            echo "::error::非法 source-url（仅允许 https 且 host 白名单）: $URL" >&2
+            exit 1
+          fi
 
       - name: Security audit PKGBUILD
         if: ${{ github.event.inputs.skip-audit != 'true' }}
@@ -60,7 +79,7 @@ jobs:
           patches: ${{ steps.resolve-patches.outputs.patches }}
 
       - name: Cache package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ${{ github.event.inputs.package-name }}
           path: ./${{ github.event.inputs.package-name }}/*.pkg.tar.zst
