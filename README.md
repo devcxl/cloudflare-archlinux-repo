@@ -118,7 +118,7 @@ packages:
 
 ```bash
 # 下载公钥
-curl -fsSL https://<your-worker-domain>/public-key.gpg -o /tmp/public-key.gpg
+curl -fsSL https://<your-worker-domain>/devcxl.gpg -o /tmp/public-key.gpg
 
 # 核对指纹
 gpg --show-keys --fingerprint /tmp/public-key.gpg
