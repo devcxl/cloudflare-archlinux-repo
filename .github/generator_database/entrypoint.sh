@@ -64,6 +64,19 @@ if ! gpg --batch --pinentry-mode loopback --passphrase-file "$pwfile" --detach-s
     exit 1
 fi
 
+# 同步签名 .files 数据库（repo-add --sign 原本会一并签名，不能遗漏）
+if ! gpg --batch --pinentry-mode loopback --passphrase-file "$pwfile" --detach-sig --yes "$DATABASE.files.tar.gz" 2>&1; then
+    echo "Error: 文件数据库签名失败" >&2
+    exit 1
+fi
+
+# 补齐客户端请求的短名符号链接：pacman 按 <仓库名>.db / .db.sig 请求，
+# 上传动作会跟随符号链接取真实内容展开为独立的 R2 对象。
+# 若缺少 *.sig 链接，桶内根目录的 <db>.sig 将停止更新，
+# 导致客户端拿到旧签名验新数据库而报“签名损坏”（2026-08 事故根因）。
+ln -sf "$DATABASE.db.tar.gz.sig" "$DATABASE.db.sig"
+ln -sf "$DATABASE.files.tar.gz.sig" "$DATABASE.files.sig"
+
 # 上传前校验：数据库文件存在且签名可验证，避免发布损坏/未签名的产物
 if [ ! -f "$DATABASE.db.tar.gz" ]; then
     echo "Error: 仓库数据库未生成" >&2
@@ -74,4 +87,14 @@ if ! gpg --verify "$DATABASE.db.tar.gz.sig" "$DATABASE.db.tar.gz" >/dev/null 2>&
     exit 1
 fi
 
-echo "✅ 仓库数据库已生成并通过签名校验: $DATABASE.db.tar.gz"
+# 按客户端视角校验短名路径（gpg 自动跟随符号链接）
+if ! gpg --verify "$DATABASE.db.sig" "$DATABASE.db" >/dev/null 2>&1; then
+    echo "Error: 短名数据库签名校验失败" >&2
+    exit 1
+fi
+if ! gpg --verify "$DATABASE.files.sig" "$DATABASE.files" >/dev/null 2>&1; then
+    echo "Error: 短名文件库签名校验失败" >&2
+    exit 1
+fi
+
+echo "✅ 仓库数据库已生成并通过签名校验: $DATABASE.db.tar.gz (.db/.files 短名符号链接已同步)"
