@@ -116,6 +116,7 @@ jobs:
         env:
           AI_BASE_URL: ${{ secrets.AI_BASE_URL || vars.AI_BASE_URL || secrets.OPENAI_BASE_URL || 'https://new-api.devcxl.cn/v1' }}
           HALFCABBAGE_API_KEY: ${{ secrets.HALFCABBAGE_API_KEY || secrets.AI_API_KEY || secrets.OPENAI_API_KEY }}
+          OPENCODE_API_KEY: ${{ secrets.HALFCABBAGE_API_KEY || secrets.AI_API_KEY || secrets.OPENAI_API_KEY }}
           AI_MODEL: ${{ vars.AI_MODEL || 'deepseek-v4-flash' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PI_CONFIG_CONTENT: >-
@@ -129,7 +130,7 @@ jobs:
                 "name": "opencode-go",
                 "api": "openai-completions",
                 "baseUrl": "$AI_BASE_URL",
-                "apiKey": "HALFCABBAGE_API_KEY",
+                "apiKey": "$HALFCABBAGE_API_KEY",
                 "models": [
                   {
                     "id": "$AI_MODEL",
@@ -245,7 +246,7 @@ jobs:
           EOF
           )
 
-          pi -m "opencode-go/$AI_MODEL" -p "$PROMPT" --mode json
+          pi --model "opencode-go/$AI_MODEL" -p "$PROMPT" --mode json
 
       - name: Upload AI review report
         if: always()

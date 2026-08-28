@@ -40,7 +40,7 @@ class SecurityScanWorkflowTests(unittest.TestCase):
         self.assertIn('HALFCABBAGE_API_KEY', review_step['env'])
         self.assertIn('models.json', review_step['run'])
         self.assertIn('opencode-go', review_step['run'])
-        self.assertIn('pi -m "opencode-go/$AI_MODEL"', review_step['run'])
+        self.assertIn('pi --model "opencode-go/$AI_MODEL"', review_step['run'])
         self.assertNotIn('continue-on-error', review_step)
 
     def test_security_scan_does_not_grant_pr_creation_permissions(self):
