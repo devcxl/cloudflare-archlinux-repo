@@ -1,6 +1,6 @@
-# ADR: 采用 OpenCode + 传统 SAST 分层架构实现构建前安全扫描
+# ADR: 采用 gh-aw (Pi Agent) + 传统 SAST 分层架构实现构建前安全扫描
 
-- **日期**: 2026-07-27
+- **日期**: 2026-07-27 (更新于 2026-08-29)
 - **状态**: Proposed
 - **决策者**: Felix（项目所有者）
 - **影响范围**: CI/CD 流水线、AUR 包构建流程
@@ -49,7 +49,7 @@
 
 ### 方案 B：独立 workflow + 分层并行扫描 → 串联构建（采纳）
 
-**做法**：创建独立的 `security-scan.yml`，包含三个并行扫描 job（Gitleaks+Semgrep、OpenCode AI、Trivy），全部通过后自动调用 `gh workflow run build.yml`。
+**做法**：创建独立的 `security-scan.yml`，包含三个并行扫描 job（Gitleaks+Semgrep、Pi Agent AI (gh-aw)、Trivy），全部通过后自动调用 `gh workflow run build.yml`。
 
 **优点**：
 - 职责分离：安全扫描与构建解耦
@@ -95,24 +95,25 @@
 | 层级 | 工具 | 定位 | 耗时预期 | 作用 |
 |------|------|------|---------|------|
 | Layer 1 | Gitleaks + Semgrep | 快速门禁 | < 2min | 拦截已知模式（密钥泄露、SQL 注入、命令注入等） |
-| Layer 2 | OpenCode (Claude Sonnet 4) | AI 深度审查 | < 5min | 拦截传统工具无法检测的逻辑安全问题（供应链风险、隐蔽恶意代码） |
+| Layer 2 | GitHub Agentic Workflows + Pi Agent | AI 深度审查 | < 5min | 拦截传统工具无法检测的逻辑安全问题（供应链风险、隐蔽恶意代码） |
 | Layer 3 | Trivy | 文件/依赖漏洞扫描 | < 3min | 拦截已知 CVE 和相关文件风险 |
 
 **三层互补关系**：
 - Layer 1 覆盖确定性规则（已知模式），Layer 2 覆盖推理判断（未知模式），Layer 3 覆盖依赖链（第三方风险）
 - 任何一层都无法单独覆盖所有攻击面，三者合在一起形成纵深防御
 
-### OpenCode 选型理由
+### Pi Agent (gh-aw) 选型理由
 
-在 AI 审查工具的选择上，OpenCode 优于以下备选：
+在 AI 审查工具的选择上，GitHub Agentic Workflows (gh-aw) + Pi Agent 优于其他备选：
 
-| 备选 | 排除理由 |
+| 备选 | 排除/对比理由 |
 |------|---------|
 | GitHub Copilot Code Review | 面向代码审查而非安全审查，无定制 prompt 能力 |
-| 自行调用 Anthropic API + 脚本 | 需要维护请求逻辑、重试、流式处理，OpenCode Action 已封装 |
-| Semgrep AI (已内置) | 仅限 SAST 规则，无法做上下文推理和整体安全性判断 |
+| 自行调用 API + 简单脚本 | 缺乏智能体多步探索能力（如逐个读取复杂补丁与辅助文件） |
+| OpenCode Action | 绑定特定商业服务生态，自定义 BaseURL 及 Provider 扩展性受限 |
+| GitHub Agentic Workflows (gh-aw) + Pi Agent (采纳) | 具备强大的代码与脚本分析能力，支持自定义 baseURL、多 Provider（OpenAI/DeepSeek/Claude 等兼容接口）、沙箱权限控制与标准化 workflow frontmatter |
 
-OpenCode 的 `workflow_dispatch + prompt` 模式恰好满足"在 CI 中按需触发 AI 驱动的深度审查"这一需求。
+gh-aw 的声明式规范配合 Pi Agent 的执行能力，可灵活切换底层模型并支持任意私有/自定义 BaseURL。
 
 ### 串联方式
 
@@ -133,13 +134,12 @@ OpenCode 的 `workflow_dispatch + prompt` 模式恰好满足"在 CI 中按需触
 2. **流程解耦**：扫描与构建独立，可分别迭代和维护
 3. **可观测性**：SARIF 报告集成 GitHub Security 面板，AI 审查报告以 Artifact 存档
 4. **回退路径清晰**：紧急情况可跳过扫描直接触发 `build.yml`
+5. **模型接入自由度**：支持自定义 baseURL，可无缝对接各类兼容 OpenAI/DeepSeek 接口的模型服务
 
 ### 负面影响
 
 1. **构建延迟增加**：总耗时增加约 5-8 分钟（三层并行中最慢的一层 + 串联触发延迟）
-2. **新增依赖**：依赖 Anthropic API（Layer 2）和 Trivy Action（Layer 3），需关注上游稳定性
-3. **维护成本**：需维护 OpenCode prompt 以应对新型攻击模式
-4. **成本**：每次扫描消耗 Anthropic API 调用额度（预估每次 < $0.50）
+2. **维护成本**：需维护安全审查 prompt 以应对新型攻击模式
 
 ### 风险缓解
 
@@ -157,19 +157,18 @@ OpenCode 的 `workflow_dispatch + prompt` 模式恰好满足"在 CI 中按需触
 |------|------|---------|
 | Phase 1 | Layer 1 (Gitleaks + Semgrep) + 串联触发逻辑 | 第 1 周 |
 | Phase 2 | Layer 3 (Trivy) | 第 2 周 |
-| Phase 3 | Layer 2 (OpenCode AI) | 第 3 周 |
+| Phase 3 | Layer 2 (Pi Agent / gh-aw) | 第 3 周 |
 | Phase 4+ | 回写结果到 Issue、白名单机制、Dashboard | 后续迭代 |
 
 ---
 
 ## 相关参考
 
+- [GitHub Agentic Workflows (gh-aw)](https://github.github.com/gh-aw/)
 - [Arch Linux Wiki — PKGBUILD](https://wiki.archlinux.org/title/PKGBUILD)
 - [Arch Linux Wiki — .install 文件](https://wiki.archlinux.org/title/PKGBUILD#install)
 - [Gitleaks GitHub Action](https://github.com/gitleaks/gitleaks-action)
 - [Semgrep GitHub Action](https://github.com/semgrep/semgrep-action)
 - [Trivy GitHub Action](https://github.com/aquasecurity/trivy-action)
-- [OpenCode GitHub Action](https://github.com/anomalyco/opencode)
 - [AUR 安全公告 — TU Bylaws § Security](https://wiki.archlinux.org/title/AUR_Trusted_User_guidelines)
-- 内部调研报告：`OpenCode 在 Arch Linux 私有仓库中的安全应用方案调研`
 - 项目技术方案：`docs/dev/specs/security-scan-workflow.md`

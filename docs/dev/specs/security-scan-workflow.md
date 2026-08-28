@@ -34,10 +34,10 @@ security-scan.yml (workflow_dispatch)
   │   ├── Gitleaks 密钥泄露扫描
   │   └── Semgrep SAST 静态分析
   │
-  ├── Job 2: ai-review（OpenCode AI 深度审查，预期 < 5min）── 与 Job 1 并行
+  ├── Job 2: ai-review（Pi AI 深度审查，预期 < 5min）── 与 Job 1 并行
   │   ├── Checkout 本仓库
   │   ├── Clone AUR 源码
-  │   └── OpenCode AI 审查 PKGBUILD + 安装脚本安全
+  │   └── Pi Agent (gh-aw) 审查 PKGBUILD + 安装脚本安全
   │
   ├── Job 3: dependency-scan（Trivy 文件扫描，预期 < 3min）── 与 Job 1 并行
   │   ├── Checkout 本仓库
@@ -85,7 +85,7 @@ AUR Git Repo (source-url)
     │
     ├── Clone ──► quick-gate       ──► Gitleaks report + Semgrep SARIF
     │
-    ├── Clone ──► ai-review        ──► OpenCode 审查结果（日志/issue comment）
+    ├── Clone ──► ai-review        ──► Pi Agent 审查结果（日志/issue/artifact）
     │
     ├── Clone ──► dependency-scan  ──► Trivy SARIF (upload to GitHub)
     │
@@ -155,12 +155,15 @@ jobs:
         continue-on-error: false
 
   # ============================================================
-  # Layer 2: OpenCode AI 深度审查
+  # Layer 2: Pi Agent (gh-aw) AI 深度审查
   # ============================================================
   ai-review:
-    name: "Layer 2 — AI Deep Review (OpenCode)"
+    name: "Layer 2 — AI Deep Review (Pi / gh-aw)"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
     outputs:
       status: ${{ job.status }}
     steps:
@@ -179,11 +182,14 @@ jobs:
           find "${{ env.SOURCE_DIR }}" -type f | head -100 >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-          # 生成源码内容摘要（针对核心文件）
           FILES=$(find "${{ env.SOURCE_DIR }}" -type f \
-            \( -name 'PKGBUILD' -o -name '*.install' -o -name '*.patch' \
-               -o -name '*.sh' -o -name '*.service' -o -name '*.conf' -o -name '*.cfg' \) \
-            | head -20)
+            \( -name 'PKGBUILD' -o -name '.SRCINFO' \
+               -o -name '*.install' -o -name '*.patch' -o -name '*.diff' \
+               -o -name '*.sh' -o -name '*.bash' -o -name '*.zsh' \
+               -o -name '*.service' -o -name '*.timer' -o -name '*.socket' \
+               -o -name '*.desktop' -o -name '*.conf' -o -name '*.cfg' \
+               -o -name '*.mjs' -o -name '*.js' -o -name '*.ts' -o -name '*.py' \) \
+            | head -30)
           for f in $FILES; do
             echo "---" >> $GITHUB_STEP_SUMMARY
             echo "**$f**" >> $GITHUB_STEP_SUMMARY
@@ -192,10 +198,22 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
           done
 
-      - name: OpenCode AI security review
-        uses: anomalyco/opencode/github@v1.18.18
+      - name: Set up Node.js for Pi Agent
+        uses: actions/setup-node@v4
         with:
-          model: "anthropic/claude-sonnet-4-20250514"
+          node-version: "22"
+
+      - name: Install Pi Coding Agent
+        run: npm install -g @earendil-works/pi-coding-agent
+
+      - name: Pi AI security review
+        env:
+          OPENAI_BASE_URL: ${{ secrets.AI_BASE_URL || vars.AI_BASE_URL || secrets.OPENAI_BASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.AI_API_KEY || secrets.OPENAI_API_KEY }}
+          AI_MODEL: ${{ vars.AI_MODEL || 'openai/deepseek-chat' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PI_CONFIG_CONTENT: >-
+            {"permission":{"external_directory":{"*":"deny","${{ runner.temp }}/*":"allow"}}}
           prompt: |
             你是一名 Arch Linux 安全审查专家。请对以下 AUR 包的源码进行深度安全检查。
 
@@ -379,7 +397,7 @@ jobs:
 
 ---
 
-## 4. OpenCode Prompt 设计说明
+## 4. Pi Agent (gh-aw) Prompt 与 BaseURL 设计说明
 
 ### 4.1 设计原则
 
@@ -387,7 +405,7 @@ jobs:
 2. **检查清单化**：6 个维度的检查项均为 AUR 包常见安全风险的具体实例
 3. **判定可执行**：每个维度 PASS/WARN/FAIL，最终有明确的合入规则
 4. **输出结构化**：Markdown 报告格式，便于存档和人工复查
-5. **模型选择**：`anthropic/claude-sonnet-4-20250514`——Sonnet 4 在结构化分析和代码审查上表现优秀，且推理速度适合 CI 场景
+5. **模型与 BaseURL 自由定制**：通过 `AI_BASE_URL` / `OPENAI_BASE_URL` 与 `AI_MODEL` 支持 OpenAI / DeepSeek / 各种兼容 API
 
 ### 4.2 关键检查项覆盖的 AUR 典型攻击面
 
@@ -403,9 +421,10 @@ jobs:
 
 ## 5. Secrets 配置清单
 
-| Secret 名称 | 用途 | 存储位置 | 备注 |
+| Secret / Variable 名称 | 用途 | 存储位置 | 备注 |
 |------------|------|---------|------|
-| `ANTHROPIC_API_KEY` | OpenCode AI 审查调用 Anthropic API | GitHub Repository Secrets | 创建 API Key: https://console.anthropic.com/ |
+| `AI_BASE_URL` / `OPENAI_BASE_URL` | 自定义 AI 接口 Base URL（如 `https://api.deepseek.com/v1`） | Repository Secrets / Vars | 可选，支持私有中转或兼容端点 |
+| `AI_API_KEY` / `OPENAI_API_KEY` | Pi Agent AI 审查调用 API Key | GitHub Repository Secrets | 必需，调用模型推理 API |
 | `GITHUB_TOKEN` | `trigger-build` job 中调用 `gh workflow run` | GitHub Actions 自动注入 | 无需手动配置，但需要 `actions: write` 权限 |
 
 > **不需要新增的 Secrets**：本 workflow 不直接访问 R2 或 Cloudflare，因此不需要 `AWS_*`、`CLOUDFLARE_*`、`GPG_*` 等 secret。这些由下游 `build.yml` 使用。
@@ -489,20 +508,20 @@ gh workflow run security-scan.yml \
 | 配置 SARIF 上传到 GitHub Security 面板 | Security 面板可查看 | 1h |
 | 测试各种包类型（-bin, -git, 标准） | 验证报告 | 2h |
 
-### Phase 3: Layer 2 OpenCode AI 审查（第三周）
+### Phase 3: Layer 2 Pi Agent AI 审查（第三周）
 
 **目标**：上线 AI 深度审查，覆盖传统工具无法检测的逻辑安全问题。
 
 | 任务 | 产出 | 预计耗时 |
 |------|------|---------|
-| 配置 `ANTHROPIC_API_KEY` secret | Secret 就绪 | 0.5h |
-| 实现 `ai-review` job | workflow 可运行 | 2h |
+| 配置 `AI_API_KEY` / `AI_BASE_URL` secret | Secret 就绪 | 0.5h |
+| 实现 `ai-review` job（Pi Agent + gh-aw 规范） | workflow 可运行 | 2h |
 | 使用已知恶意 PKGBUILD 样本测试 | 验证 AI 检出率 | 3h |
 | 调优 prompt（基于 Phase 3 测试结果） | 优化版 prompt | 2h |
 
 ### 后续优化（Phase 4+）
 
-- **回写结果到 Issue/PR**：OpenCode 结果作为 comment 自动回写到对应 Issue
+- **回写结果到 Issue/PR**：Pi Agent 审查结果作为 comment 自动回写到对应 Issue
 - **白名单机制**：已知安全的包可跳过某些扫描层
 - **增量扫描**：仅扫描 PKGBUILD diff 而非全量 clone
 - **扫描结果 Dashboard**：汇总历史扫描数据，统计通过率
@@ -513,8 +532,8 @@ gh workflow run security-scan.yml \
 
 | 风险 | 影响 | 概率 | 缓解措施 |
 |------|------|------|---------|
-| OpenCode API 调用超时 | AI 审查 job 失败，阻塞构建 | 中 | `timeout-minutes: 10` 兜底；可跳过 AI 层手动构建 |
-| Anthropic API 额度耗尽 | 同上 | 低 | 设置 API usage alert；备用模型降级策略 |
+| AI API 调用超时 | AI 审查 job 失败，阻塞构建 | 中 | `timeout-minutes: 15` 兜底；可跳过 AI 层手动构建 |
+| API 额度耗尽 | 同上 | 低 | 设置 API usage alert；备用模型降级策略 |
 | AI 误判（假阳性/假阴性） | 合法包被阻断或恶意包漏过 | 中 | AI 判定不作为唯一依据，Layer 1/3 提供确定性扫描；WARN 不阻断 |
 | Gitleaks/Semgrep 规则不覆盖 AUR 特有模式 | Layer 1 漏检 | 中 | 自定义 `.gitleaks.toml` 规则 + Semgrep 自定义规则 |
 | Trivy SARIF 上传失败 | 安全面板无法查看结果 | 低 | `if: always()` 确保不阻断流程 |
@@ -527,7 +546,7 @@ gh workflow run security-scan.yml \
 
 | 编号 | 假设 | 待确认 |
 |------|------|--------|
-| A1 | `anomalyco/opencode/github@v1.18.18` Action 支持 `prompt` 参数和 `agent` 参数 | 需在 Phase 3 实施前验证 Action 的实际接口，可能需调整参数名 |
+| A1 | `@earendil-works/pi-coding-agent` 支持自定义 BaseURL 和标准模型调用 | 需在 Phase 3 实施前验证参数与自定义 BaseURL 连接性 |
 | A2 | `GITHUB_TOKEN` 默认权限足以触发同仓库的 `workflow_dispatch` | 已验证：需要 `actions: write` 权限 |
 | A3 | Anthropic API 单次调用延迟在 1-3 分钟内可返回结果 | Phase 3 测试时验证并调整 timeout |
 | A4 | `.gitleaks.toml` 暂不需要自定义规则，使用默认规则即可 | Phase 1 实施时根据首次扫描结果决定 |

@@ -77,3 +77,14 @@ packages:
     url: https://aur.archlinux.org/playwright-cli.git
     allowed-source-patterns:
       - https://registry.npmjs.org/@playwright/cli/*
+  - name: hmcl-bin
+    url: https://aur.archlinux.org/hmcl-bin.git
+    allowed-source-patterns:
+      - https://github.com/HMCL-dev/HMCL/releases/download/*
+      - https://raw.githubusercontent.com/HMCL-dev/HMCL/*
+  - name: maestro-bin
+    url: https://aur.archlinux.org/maestro-bin.git
+    allowed-source-patterns:
+      - https://github.com/mobile-dev-inc/maestro/releases/download/*
+
+

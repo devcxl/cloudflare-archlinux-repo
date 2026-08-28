@@ -75,6 +75,8 @@ gpg --armor --export <key-id> > public-key.gpg
 | `CLOUDFLARE_API_TOKEN` | Cloudflare API Token |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID |
 | `ACCESS_TOKEN` | GitHub 个人访问令牌（用于触发跨仓库工作流） |
+| `HALFCABBAGE_API_KEY` / `AI_API_KEY` | *(可选)* AI 安全审查 API 密钥（用于 Pi Agent 的 `opencode-go` provider） |
+| `AI_BASE_URL` | *(可选)* 自定义 AI API Base URL（默认 `https://new-api.devcxl.cn/v1`） |
 
 ### 4. 上传公钥到 R2
 

@@ -18,17 +18,29 @@ class SecurityScanWorkflowTests(unittest.TestCase):
     def _review_step(self):
         steps = self.workflow['jobs']['ai-review']['steps']
         return next(
-            step for step in steps if step.get('name') == 'OpenCode AI security review'
+            step for step in steps if step.get('name') == 'Pi AI security review'
         )
 
-    def test_ai_review_uses_github_action_with_token(self):
+    def test_ai_review_uses_pi_agent_with_custom_base_url(self):
+        steps = self.workflow['jobs']['ai-review']['steps']
+        setup_node = next(
+            step for step in steps if step.get('name') == 'Set up Node.js for Pi Agent'
+        )
+        install_pi = next(
+            step for step in steps if step.get('name') == 'Install Pi Coding Agent'
+        )
         review_step = self._review_step()
 
-        self.assertEqual(review_step['uses'], 'anomalyco/opencode/github@31406ccc51b4bd2a4e1e086b2bcaa5f7f804f26d')
-        self.assertIs(review_step['with']['use_github_token'], True)
+        self.assertIn('actions/setup-node', setup_node['uses'])
+        self.assertIn('@earendil-works/pi-coding-agent', install_pi['run'])
         self.assertEqual(
             review_step['env']['GITHUB_TOKEN'], '${{ secrets.GITHUB_TOKEN }}'
         )
+        self.assertIn('AI_BASE_URL', review_step['env'])
+        self.assertIn('HALFCABBAGE_API_KEY', review_step['env'])
+        self.assertIn('models.json', review_step['run'])
+        self.assertIn('opencode-go', review_step['run'])
+        self.assertIn('pi -m "opencode-go/$AI_MODEL"', review_step['run'])
         self.assertNotIn('continue-on-error', review_step)
 
     def test_security_scan_does_not_grant_pr_creation_permissions(self):
@@ -73,23 +85,23 @@ class SecurityScanWorkflowTests(unittest.TestCase):
         self.assertEqual(permissions.get('issues'), 'write')
 
     def test_prompt_contains_readonly_constraints(self):
-        prompt = self._review_step()['with']['prompt']
-        self.assertIn('不修改仓库', prompt)
-        self.assertIn('不创建分支', prompt)
+        run = self._review_step()['run']
+        self.assertIn('不修改仓库', run)
+        self.assertIn('不创建分支', run)
 
     def test_prompt_requires_final_verdict(self):
-        prompt = self._review_step()['with']['prompt']
-        self.assertIn('FINAL_VERDICT', prompt)
-        self.assertIn('FINAL_VERDICT: FAIL', prompt)
+        run = self._review_step()['run']
+        self.assertIn('FINAL_VERDICT', run)
+        self.assertIn('FINAL_VERDICT: FAIL', run)
 
     def test_report_written_to_runner_temp(self):
-        prompt = self._review_step()['with']['prompt']
-        self.assertIn('runner.temp', prompt)
-        self.assertIn('ai-review-report.md', prompt)
+        run = self._review_step()['run']
+        self.assertIn('runner.temp', run)
+        self.assertIn('ai-review-report.md', run)
 
     def test_ai_review_allows_only_runner_temp_as_external_directory(self):
         config = json.loads(
-            self._review_step()['env']['OPENCODE_CONFIG_CONTENT']
+            self._review_step()['env']['PI_CONFIG_CONTENT']
         )
         permissions = config['permission']['external_directory']
 
