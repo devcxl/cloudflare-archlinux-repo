@@ -31,9 +31,11 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: Clone AUR source
+        env:
+          SOURCE_URL: ${{ inputs.source-url }}
         run: |
           bash .github/clone-source-with-retry.sh \
-            "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
+            "$SOURCE_URL" "$SOURCE_DIR"
 
       - name: Security audit PKGBUILD
         uses: ./.github/pkgbuild-audit-action
@@ -76,9 +78,11 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: Clone AUR source
+        env:
+          SOURCE_URL: ${{ inputs.source-url }}
         run: |
           bash .github/clone-source-with-retry.sh \
-            "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
+            "$SOURCE_URL" "$SOURCE_DIR"
 
       - name: Prepare source summary for AI
         id: source-summary
@@ -110,7 +114,7 @@ jobs:
           node-version: "22"
 
       - name: Install Pi Coding Agent
-        run: npm install -g @earendil-works/pi-coding-agent
+        run: npm install -g @earendil-works/pi-coding-agent@0.84.4
 
       - name: Pi AI security review
         env:
@@ -119,6 +123,8 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.HALFCABBAGE_API_KEY || secrets.AI_API_KEY || secrets.OPENAI_API_KEY }}
           AI_MODEL: ${{ vars.AI_MODEL || 'deepseek-v4-flash' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_NAME: ${{ inputs.package-name }}
+          SOURCE_URL: ${{ inputs.source-url }}
           PI_CONFIG_CONTENT: >-
             {"permission":{"external_directory":{"*":"deny","${{ runner.temp }}/*":"allow"}}}
         run: |
@@ -147,30 +153,30 @@ jobs:
           }
           EOF
 
-          PROMPT=$(cat << 'EOF'
+          PROMPT=$(cat << EOF
           你是一名 Arch Linux 安全审查专家。请对以下 AUR 包的源码进行深度安全检查。
 
-          包名: ${{ inputs.package-name }}
-          源码路径: ${{ env.SOURCE_DIR }}
+          包名: $PACKAGE_NAME
+          源码路径: $SOURCE_DIR
 
           ## 重要约束
 
           1. 这是只读安全审查任务，只读取源码文件，不修改仓库内任何文件，不创建分支、提交或 PR。
           2. 不要修改、创建或删除 git 工作区中的任何文件。
-          3. 审查完成后，将完整的 Markdown 审查报告写入文件 `${{ runner.temp }}/ai-review-report.md`，并在报告末尾单独一行输出 FINAL_VERDICT 判定。
+          3. 审查完成后，将完整的 Markdown 审查报告写入文件 \$RUNNER_TEMP/ai-review-report.md，并在报告末尾单独一行输出 FINAL_VERDICT 判定。
 
           ## 文件审查范围（必须遵守）
 
-          1. 审查开始后，先执行 `find ${{ env.SOURCE_DIR }} -type f` 列出源码目录全部文件。
+          1. 审查开始后，先执行 \`find \$SOURCE_DIR -type f\` 列出源码目录全部文件。
           2. 必须**逐个读取**以下类型的全部文件（有则必读，不得遗漏）：
-             - `PKGBUILD` 和 `.SRCINFO`
-             - 所有 `*.install` 安装钩子脚本（post_install / post_upgrade / pre_remove 等）
-             - 所有 `*.sh` / `*.bash` / `*.zsh` 启动或辅助脚本
-             - 所有 `*.patch` / `*.diff` 补丁文件
-             - 所有 `*.service` / `*.timer` / `*.socket` systemd 单元
-             - 所有 `*.desktop` 桌面入口文件
-             - 所有 `*.js` / `*.mjs` / `*.ts` 辅助脚本（重点关注会修改应用内容/asar 包的补丁脚本）
-             - 所有 `*.py` 辅助脚本
+             - \`PKGBUILD\` 和 \`.SRCINFO\`
+             - 所有 \`*.install\` 安装钩子脚本（post_install / post_upgrade / pre_remove 等）
+             - 所有 \`*.sh\` / \`*.bash\` / \`*.zsh\` 启动或辅助脚本
+             - 所有 \`*.patch\` / \`*.diff\` 补丁文件
+             - 所有 \`*.service\` / \`*.timer\` / \`*.socket\` systemd 单元
+             - 所有 \`*.desktop\` 桌面入口文件
+             - 所有 \`*.js\` / \`*.mjs\` / \`*.ts\` 辅助脚本（重点关注会修改应用内容/asar 包的补丁脚本）
+             - 所有 \`*.py\` 辅助脚本
              - 其余所有文本类型文件（仅 LICENSE / README 等纯文档文件可跳过）
           3. 报告中必须包含「已审计文件清单」，逐一列出实际读取过的文件路径；未能读取的文件必须标注「未审计」并说明原因。
 
@@ -179,36 +185,36 @@ jobs:
           请逐个检查以下安全维度，对每个维度给出 PASS / WARN / FAIL 判定：
 
           ### 1. 源码完整性校验（Source Integrity）
-          - PKGBUILD 中 `source` 数组的所有 URL 是否指向可信域名？
-          - `sha256sums` / `sha512sums` / `b2sums` 是否完整覆盖所有 source 条目？
-          - 是否存在 `SKIP` 跳过校验的条目？
-          - 是否有通过 `curl`/`wget` 动态下载且不校验哈希的行为？
+          - PKGBUILD 中 \`source\` 数组的所有 URL 是否指向可信域名？
+          - \`sha256sums\` / \`sha512sums\` / \`b2sums\` 是否完整覆盖所有 source 条目？
+          - 是否存在 \`SKIP\` 跳过校验的条目？
+          - 是否有通过 \`curl\`/\`wget\` 动态下载且不校验哈希的行为？
 
           ### 2. 构建脚本安全（Build Script Safety）
-          - `build()`, `prepare()`, `package()`, `install()` 是否有危险模式？
-          - `curl ... | bash`、`eval`、`chmod 777`、修改系统文件等
+          - \`build()\`, \`prepare()\`, \`package()\`, \`install()\` 是否有危险模式？
+          - \`curl ... | bash\`、\`eval\`、\`chmod 777\`、修改系统文件等
 
           ### 3. 依赖安全（Dependency Security）
-          - `depends`/`makedepends` 是否合法？是否有废弃或可疑包？
+          - \`depends\`/\`makedepends\` 是否合法？是否有废弃或可疑包？
 
           ### 4. 敏感信息泄露（Secret Leakage）
           - 是否有硬编码 API Key、Token、密码、私钥？
 
           ### 5. 已知漏洞模式（Known Vulnerability Patterns）
-          - `.patch` 文件内容是否有引入安全漏洞的修改？
-          - `.service` / `.timer` 等 systemd 单元文件是否以 `root` 运行但无安全加固（`ProtectSystem`, `NoNewPrivileges` 等）？
-          - 是否包含 SUID 二进制或 `setcap` 操作？
-          - `*.js` / `*.mjs` / `*.py` 辅助补丁脚本是否修改应用内容以植入后门、窃取凭据或绕过安全机制？
+          - \`.patch\` 文件内容是否有引入安全漏洞的修改？
+          - \`.service\` / \`.timer\` 等 systemd 单元文件是否以 \`root\` 运行但无安全加固（\`ProtectSystem\`, \`NoNewPrivileges\` 等）？
+          - 是否包含 SUID 二进制或 \`setcap\` 操作？
+          - \`*.js\` / \`*.mjs\` / \`*.py\` 辅助补丁脚本是否修改应用内容以植入后门、窃取凭据或绕过安全机制？
 
           ### 6. 供应链风险（Supply Chain Risk）
-          - source URL 是否可信？`validpgpkeys` 是否明确？
+          - source URL 是否可信？\`validpgpkeys\` 是否明确？
 
           ## 报告格式
 
           # AUR 安全审查报告
 
-          **包名**: ${{ inputs.package-name }}
-          **源码**: ${{ inputs.source-url }}
+          **包名**: $PACKAGE_NAME
+          **源码**: $SOURCE_URL
           **审查时间**: (当前时间)
 
           ## 审查结论
@@ -259,6 +265,8 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_NAME: ${{ inputs.package-name }}
+          GH_REPO: ${{ github.repository }}
         run: |
           REPORT_FILE="$RUNNER_TEMP/ai-review-report.md"
           if [ ! -f "$REPORT_FILE" ]; then
@@ -280,14 +288,14 @@ jobs:
           fi
 
           if [ "$VERDICT" = "FAIL" ]; then
-            TITLE="[安全审查] ${{ inputs.package-name }} 发现安全问题"
-            EXISTS=$(gh issue list --repo "${{ github.repository }}" --state open \
+            TITLE="[安全审查] $PACKAGE_NAME 发现安全问题"
+            EXISTS=$(gh issue list --repo "$GH_REPO" --state open \
               --limit 100 --json title \
               --jq ".[] | select(.title == \"$TITLE\") | .number" | head -1)
             if [ -n "$EXISTS" ]; then
               echo "已存在相同标题的 open Issue (#$EXISTS)，跳过创建"
             else
-              gh issue create --repo "${{ github.repository }}" \
+              gh issue create --repo "$GH_REPO" \
                 --title "$TITLE" \
                 --body-file "$REPORT_FILE"
             fi
@@ -306,9 +314,11 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Clone AUR source
+        env:
+          SOURCE_URL: ${{ inputs.source-url }}
         run: |
           bash .github/clone-source-with-retry.sh \
-            "${{ inputs.source-url }}" "${{ env.SOURCE_DIR }}"
+            "$SOURCE_URL" "$SOURCE_DIR"
       - name: Trivy — filesystem vulnerability scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
@@ -336,20 +346,27 @@ jobs:
       - name: Trigger build workflow
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+          PACKAGE_NAME: ${{ inputs.package-name }}
+          SOURCE_URL: ${{ inputs.source-url }}
         run: |
           gh workflow run build.yml \
-            --repo "${{ github.repository }}" \
-            --ref "${{ github.ref_name }}" \
-            -f package-name="${{ inputs.package-name }}" \
-            -f source-url="${{ inputs.source-url }}"
+            --repo "$GH_REPO" \
+            --ref "$REF_NAME" \
+            -f package-name="$PACKAGE_NAME" \
+            -f source-url="$SOURCE_URL"
       - name: Summary
+        env:
+          PACKAGE_NAME: ${{ inputs.package-name }}
+          SOURCE_URL: ${{ inputs.source-url }}
         run: |
-          echo "## ✅ Security Scan Passed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **包名**: ${{ inputs.package-name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **源码**: ${{ inputs.source-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Layer 1 (Quick Gate)**: PASS" >> $GITHUB_STEP_SUMMARY
-          echo "- **Layer 2 (AI Review)**: PASS" >> $GITHUB_STEP_SUMMARY
-          echo "- **Layer 3 (Trivy Scan)**: PASS" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "已触发构建: \`build.yml\`" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Security Scan Passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **包名**: $PACKAGE_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **源码**: $SOURCE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Layer 1 (Quick Gate)**: PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Layer 2 (AI Review)**: PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Layer 3 (Trivy Scan)**: PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "已触发构建: \`build.yml\`" >> "$GITHUB_STEP_SUMMARY"

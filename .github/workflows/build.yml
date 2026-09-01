@@ -29,15 +29,16 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: Validate inputs
+        env:
+          PACKAGE_NAME: ${{ github.event.inputs.package-name }}
+          SOURCE_URL: ${{ github.event.inputs.source-url }}
         run: |
-          NAME="${{ github.event.inputs.package-name }}"
-          URL="${{ github.event.inputs.source-url }}"
-          if [[ ! "$NAME" =~ ^[a-zA-Z0-9@_+][a-zA-Z0-9@._+-]*$ ]]; then
-            echo "::error::非法 package-name: $NAME" >&2
+          if [[ ! "$PACKAGE_NAME" =~ ^[a-zA-Z0-9@_+][a-zA-Z0-9@._+-]*$ ]]; then
+            echo "::error::非法 package-name: $PACKAGE_NAME" >&2
             exit 1
           fi
-          if [[ ! "$URL" =~ ^https://([^/]+\.)?(aur\.archlinux\.org|github\.com|gitlab\.com)/ ]]; then
-            echo "::error::非法 source-url（仅允许 https 且 host 白名单）: $URL" >&2
+          if [[ ! "$SOURCE_URL" =~ ^https://([^/]+\.)?(aur\.archlinux\.org|github\.com|gitlab\.com)/ ]]; then
+            echo "::error::非法 source-url（仅允许 https 且 host 白名单）: $SOURCE_URL" >&2
             exit 1
           fi
 
@@ -50,8 +51,10 @@ jobs:
 
       - name: Resolve package patches
         id: resolve-patches
+        env:
+          PACKAGE_NAME: ${{ github.event.inputs.package-name }}
         run: |
-          PATCHES=$(python3 - "${{ github.event.inputs.package-name }}" <<'EOF'
+          PATCHES=$(python3 - "$PACKAGE_NAME" <<'EOF'
           import sys
           import yaml
           try:
@@ -94,8 +97,10 @@ jobs:
           skip-package: ${{ github.event.inputs.package-name }}
 
       - name: Move new package into repo folder
+        env:
+          PACKAGE_NAME: ${{ github.event.inputs.package-name }}
         run: |
-          find ./${{ github.event.inputs.package-name }} -name '*.pkg.tar.zst' -exec cp {} ./repo/ \;
+          find "./$PACKAGE_NAME" -name '*.pkg.tar.zst' -exec cp {} ./repo/ \;
 
       - name: Generate pacman repo database
         uses: ./.github/generator_database

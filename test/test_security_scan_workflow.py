@@ -96,7 +96,7 @@ class SecurityScanWorkflowTests(unittest.TestCase):
 
     def test_report_written_to_runner_temp(self):
         run = self._review_step()['run']
-        self.assertIn('runner.temp', run)
+        self.assertTrue('runner.temp' in run or 'RUNNER_TEMP' in run)
         self.assertIn('ai-review-report.md', run)
 
     def test_ai_review_allows_only_runner_temp_as_external_directory(self):
