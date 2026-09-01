@@ -60,6 +60,10 @@ packages:
     allowed-source-patterns:
       - https://github.com/earendil-works/pi/releases/download/*
       - https://raw.githubusercontent.com/earendil-works/pi/*
+  - name: zcode
+    url: https://aur.archlinux.org/zcode.git
+    allowed-source-patterns:
+      - https://cdn-zcode.z.ai/zcode/electron/releases/*
   - name: cloudflare-wrangler
     url: https://aur.archlinux.org/cloudflare-wrangler.git
     allowed-source-patterns:
