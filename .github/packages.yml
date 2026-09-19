@@ -95,5 +95,9 @@ packages:
     url: https://aur.archlinux.org/googleworkspace-cli-bin.git
     allowed-source-patterns:
       - https://github.com/googleworkspace/cli/releases/download/*
+  - name: hermes-agent
+    url: https://aur.archlinux.org/hermes-agent.git
+    allowed-source-patterns:
+      - https://github.com/NousResearch/hermes-agent/*
 
 
