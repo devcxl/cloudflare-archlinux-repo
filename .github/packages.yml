@@ -91,5 +91,9 @@ packages:
     allowed-source-patterns:
       - https://github.com/router-for-me/CLIProxyAPI/releases/download/*
       - https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/*
+  - name: googleworkspace-cli-bin
+    url: https://aur.archlinux.org/googleworkspace-cli-bin.git
+    allowed-source-patterns:
+      - https://github.com/googleworkspace/cli/releases/download/*
 
 
