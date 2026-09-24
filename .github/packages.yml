@@ -36,8 +36,8 @@ packages:
   - name: hysteria-bin
     url: https://aur.archlinux.org/hysteria-bin.git
     allowed-source-patterns:
-      - https://github.com/apernet/hysteria/releases/download/*
-      - https://raw.githubusercontent.com/apernet/hysteria/*
+      - https://github.com/HyNetworks/hysteria/releases/download/*
+      - https://raw.githubusercontent.com/HyNetworks/hysteria/*
   - name: localsend-bin
     url: https://aur.archlinux.org/localsend-bin.git
     allowed-source-patterns:
