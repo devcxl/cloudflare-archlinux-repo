@@ -95,9 +95,5 @@ packages:
     url: https://aur.archlinux.org/googleworkspace-cli-bin.git
     allowed-source-patterns:
       - https://github.com/googleworkspace/cli/releases/download/*
-  - name: google-colab-cli
-    url: https://aur.archlinux.org/google-colab-cli.git
-    allowed-source-patterns:
-      - https://github.com/googlecolab/google-colab-cli/archive/refs/tags/*
 
 
