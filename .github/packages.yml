@@ -23,6 +23,10 @@ packages:
     url: https://aur.archlinux.org/opencode-bin.git
     allowed-source-patterns:
       - https://github.com/anomalyco/opencode/releases/download/*
+  - name: opencode-beta
+    url: https://aur.archlinux.org/opencode-beta.git
+    allowed-source-patterns:
+      - https://registry.npmjs.org/@opencode/*
   - name: openai-codex-desktop
     url: https://aur.archlinux.org/openai-codex-desktop.git
     allowed-source-patterns:
