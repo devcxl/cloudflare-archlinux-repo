@@ -17,7 +17,7 @@ packages:
   - name: opencode-desktop-bin
     url: https://aur.archlinux.org/opencode-desktop-bin.git
     allowed-source-patterns:
-      - https://github.com/anomalyco/opencode/releases/download/*
+      - https://opencode.ai/files/bin/*
       - https://raw.githubusercontent.com/anomalyco/opencode/*
   - name: opencode-bin
     url: https://aur.archlinux.org/opencode-bin.git
