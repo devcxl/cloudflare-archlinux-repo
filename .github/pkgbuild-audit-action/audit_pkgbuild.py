@@ -15,6 +15,7 @@ PKGBUILD 安全审计脚本
   SOURCE_URL=... PACKAGE_NAME=... CONFIG_PATH=... python3 audit_pkgbuild.py
 """
 
+import fnmatch
 import os
 import re
 import shutil
@@ -97,13 +98,15 @@ def extract_source_urls(sources):
     """从 source 列表中提取远程 URL（去掉 filename:: 前缀和变量引用）。"""
     urls = []
     for src in sources:
-        m = re.search(r'::(https?://\S+)', src)
+        target = src.split('::', 1)[1] if '::' in src else src
+        target = target.strip()
+        m = re.match(r'^(https?://\S+)', target)
         if m:
             urls.append(m.group(1))
             continue
-        m = re.match(r'^(https?://\S+)', src)
-        if m:
-            urls.append(m.group(1))
+        if re.match(r'^\$(?:[A-Za-z_]|\{[A-Za-z_])', target):
+            urls.append(target)
+            continue
     return urls
 
 
@@ -145,9 +148,41 @@ def _extract_static_pkgbuild_variables(content):
     return variables
 
 
+def _expand_param_op(val, op, pat):
+    """执行 Bash 参数展开子集：%, %%, #, ##。"""
+    n = len(val)
+    if op == "%":  # 最短后置匹配
+        for i in range(n, -1, -1):
+            if fnmatch.fnmatchcase(val[i:], pat):
+                return val[:i]
+    elif op == "%%":  # 最长后置匹配
+        for i in range(0, n + 1):
+            if fnmatch.fnmatchcase(val[i:], pat):
+                return val[:i]
+    elif op == "#":  # 最短前置匹配
+        for i in range(0, n + 1):
+            if fnmatch.fnmatchcase(val[:i], pat):
+                return val[i:]
+    elif op == "##":  # 最长前置匹配
+        for i in range(n, -1, -1):
+            if fnmatch.fnmatchcase(val[:i], pat):
+                return val[i:]
+    return val
+
+
 def _expand_static_pkgbuild_variables(value, variables):
     """仅展开已解析的静态变量，保留未知变量供白名单拒绝。"""
     for name, replacement in variables.items():
+        def _replace_param(match):
+            op = match.group(1)
+            pat = match.group(2)
+            return _expand_param_op(replacement, op, pat)
+
+        value = re.sub(
+            rf'\$\{{{name}(%%|%|##|#)([^}}]+)\}}',
+            _replace_param,
+            value,
+        )
         value = re.sub(
             rf'\$(?:\{{{name}\}}|{name}\b)',
             lambda _: replacement,
@@ -343,12 +378,16 @@ def run_checks(content, allowed_patterns, patch_contents=None):
     sources = extract_sources(content)
     checksums = extract_checksums(content)
     variables = _extract_static_pkgbuild_variables(content)
+    expanded_sources = [
+        _expand_static_pkgbuild_variables(s, variables)
+        for s in sources
+    ]
     source_urls = [
         _expand_static_pkgbuild_variables(url, variables)
-        for url in extract_source_urls(sources)
+        for url in extract_source_urls(expanded_sources)
     ]
 
-    sources_text = '\n'.join(sources)
+    sources_text = '\n'.join(sources + expanded_sources)
     checksums_text = '\n'.join(
         val for vals in checksums.values() for val in vals
     )

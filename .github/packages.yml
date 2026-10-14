@@ -99,5 +99,10 @@ packages:
     url: https://aur.archlinux.org/googleworkspace-cli-bin.git
     allowed-source-patterns:
       - https://github.com/googleworkspace/cli/releases/download/*
+  - name: aliyun-cli-bin
+    url: https://aur.archlinux.org/aliyun-cli-bin.git
+    allowed-source-patterns:
+      - https://github.com/aliyun/aliyun-cli/releases/download/*
+      - https://raw.githubusercontent.com/aliyun/aliyun-cli/*
 
 

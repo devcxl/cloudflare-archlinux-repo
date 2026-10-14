@@ -684,6 +684,40 @@ sha256sums=('abc123def456789')"""
         self.assertFalse(blocking)
         self.assertEqual(issues, [])
 
+    def test_clean_pkgbuild_with_parameter_expansion_and_custom_var_url(self):
+        content = """pkgname=aliyun-cli-bin
+pkgver=3.5.1
+_ghurl="https://github.com/aliyun/aliyun-cli"
+source_x86_64=("${pkgname%-bin}-${pkgver}-x86_64.tgz::${_ghurl}/releases/download/v${pkgver}/${pkgname%-bin}-linux-${pkgver}-amd64.tgz")
+sha256sums_x86_64=('3a9a45b9c7899228074135612d2b7ebbf32abb97826d825787cb454cd3011bdc')"""
+        patterns = ['https://github.com/aliyun/aliyun-cli/releases/download/*']
+        issues, blocking = self._run(content, allowed_patterns=patterns)
+        self.assertFalse(blocking)
+        self.assertEqual(issues, [])
+
+    def test_parameter_expansion_operations(self):
+        variables = {'pkgname': 'aliyun-cli-bin', 'prefix_test': 'python-requests'}
+        self.assertEqual(
+            self.module._expand_static_pkgbuild_variables('${pkgname%-bin}', variables),
+            'aliyun-cli',
+        )
+        self.assertEqual(
+            self.module._expand_static_pkgbuild_variables('${pkgname%-cli-bin}', variables),
+            'aliyun',
+        )
+        self.assertEqual(
+            self.module._expand_static_pkgbuild_variables('${pkgname%%-*}', variables),
+            'aliyun',
+        )
+        self.assertEqual(
+            self.module._expand_static_pkgbuild_variables('${prefix_test#python-}', variables),
+            'requests',
+        )
+        self.assertEqual(
+            self.module._expand_static_pkgbuild_variables('${prefix_test##*-}', variables),
+            'requests',
+        )
+
     # ── MIXED ─────────────────────────────────────────────
 
     def test_warning_only_does_not_block(self):
