@@ -104,5 +104,11 @@ packages:
     allowed-source-patterns:
       - https://github.com/aliyun/aliyun-cli/releases/download/*
       - https://raw.githubusercontent.com/aliyun/aliyun-cli/*
+  - name: deepseek-harness-bin
+    url: https://aur.archlinux.org/deepseek-harness-bin.git
+    allowed-source-patterns:
+      - https://registry.npmjs.org/@deepseek-ai/dsh/*
+      - https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/*
+
 
 
