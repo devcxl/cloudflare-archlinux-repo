@@ -109,6 +109,13 @@ packages:
     allowed-source-patterns:
       - https://registry.npmjs.org/@deepseek-ai/dsh/*
       - https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/*
+  - name: claude-code
+    url: https://aur.archlinux.org/claude-code.git
+    allowed-source-patterns:
+      - https://downloads.claude.ai/*
+      - https://code.claude.com/*
+      - https://raw.githubusercontent.com/anthropics/claude-code/*
+
 
 
 
