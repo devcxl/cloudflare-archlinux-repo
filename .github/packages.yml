@@ -115,6 +115,10 @@ packages:
       - https://downloads.claude.ai/*
       - https://code.claude.com/*
       - https://raw.githubusercontent.com/anthropics/claude-code/*
+  - name: netease-cloud-music-gtk4
+    url: https://aur.archlinux.org/netease-cloud-music-gtk4.git
+    allowed-source-patterns:
+      - https://github.com/gmg137/netease-cloud-music-gtk/*
 
 
 
