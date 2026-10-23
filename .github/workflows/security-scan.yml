@@ -61,7 +61,6 @@ jobs:
         uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d
         with:
           config: auto
-          target: ${{ env.SOURCE_DIR }}
         continue-on-error: false
 
   ai-review:
@@ -121,7 +120,8 @@ jobs:
           AI_BASE_URL: ${{ secrets.AI_BASE_URL || vars.AI_BASE_URL || secrets.OPENAI_BASE_URL || 'https://new-api.devcxl.cn/v1' }}
           HALFCABBAGE_API_KEY: ${{ secrets.HALFCABBAGE_API_KEY || secrets.AI_API_KEY || secrets.OPENAI_API_KEY }}
           OPENCODE_API_KEY: ${{ secrets.HALFCABBAGE_API_KEY || secrets.AI_API_KEY || secrets.OPENAI_API_KEY }}
-          AI_MODEL: ${{ vars.AI_MODEL || 'deepseek-v4-flash' }}
+          # 覆盖请用 `gh variable set AI_MODEL`（此处不读 secrets）
+          AI_MODEL: ${{ vars.AI_MODEL || 'deepseek-v4.1-flash' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE_NAME: ${{ inputs.package-name }}
           SOURCE_URL: ${{ inputs.source-url }}
@@ -253,6 +253,13 @@ jobs:
           )
 
           pi --model "opencode-go/$AI_MODEL" -p "$PROMPT" --mode json
+
+          # pi 在上游返回 5xx（如模型下线）时退出码仍为 0，这里显式校验产物，
+          # 避免把「模型不可用」暴露成后续步骤的「报告缺失」而掩盖真实原因。
+          if [ ! -s "$RUNNER_TEMP/ai-review-report.md" ]; then
+            echo "::error::AI 审查未生成报告（模型: ${AI_MODEL}，网关: ${AI_BASE_URL}），请确认该模型在上游仍然可用"
+            exit 1
+          fi
 
       - name: Upload AI review report
         if: always()
