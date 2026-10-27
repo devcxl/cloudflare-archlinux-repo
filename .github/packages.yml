@@ -27,12 +27,6 @@ packages:
     url: https://aur.archlinux.org/opencode-beta.git
     allowed-source-patterns:
       - https://registry.npmjs.org/@opencode/*
-  - name: openai-codex-desktop
-    url: https://aur.archlinux.org/openai-codex-desktop.git
-    allowed-source-patterns:
-      - https://persistent.oaistatic.com/codex-app-prod/*
-      - https://registry.npmjs.org/better-sqlite3/*
-      - https://registry.npmjs.org/node-pty/*
   - name: openai-codex-bin
     url: https://aur.archlinux.org/openai-codex-bin.git
     allowed-source-patterns:
