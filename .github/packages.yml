@@ -123,6 +123,10 @@ packages:
     url: https://aur.archlinux.org/grok-bot-bin.git
     allowed-source-patterns:
       - https://downloads.cursor.com/*
+  - name: chatgpt-desktop
+    url: https://aur.archlinux.org/chatgpt-desktop.git
+    allowed-source-patterns:
+      - https://persistent.oaistatic.com/codex-app-prod/*
 
 
 
