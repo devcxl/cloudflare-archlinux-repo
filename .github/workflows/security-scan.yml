@@ -66,7 +66,9 @@ jobs:
   ai-review:
     name: "Layer 2 — AI Deep Review (Pi / gh-aw)"
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 审查耗时随包而异（实测 8m38s ~ >15m），15 分钟会把仍在工作的 pi 进程强杀并丢掉报告，
+    # 结果是包永远进不了构建。留足余量，超时只作为失控兜底。
+    timeout-minutes: 30
     permissions:
       contents: read
       issues: write
