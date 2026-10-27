@@ -1,0 +1,150 @@
+name: Remove package
+
+# 从 R2 彻底移除一个已下架的包：删除包文件 → 用剩余包重建数据库 → 上传。
+# 仅用于 packages.yml 中已删除的包；仍在监控的包会被拒绝，避免误删。
+on:
+  workflow_dispatch:
+    inputs:
+      package-name:
+        description: "要移除的包名（必须已从 packages.yml 删除）"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# 与构建共用同一队列：数据库的“快照→重建→上传”必须串行，避免与构建竞态。
+concurrency:
+  group: repo-db-build
+  cancel-in-progress: false
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Validate input
+        env:
+          PACKAGE_NAME: ${{ inputs.package-name }}
+        run: |
+          if [[ ! "$PACKAGE_NAME" =~ ^[a-zA-Z0-9@_+][a-zA-Z0-9@._+-]*$ ]]; then
+            echo "::error::非法 package-name: $PACKAGE_NAME" >&2
+            exit 1
+          fi
+          pip install --quiet pyyaml
+          python3 - "$PACKAGE_NAME" <<'EOF'
+          import sys
+          import yaml
+          name = sys.argv[1]
+          with open(".github/packages.yml") as f:
+              packages = yaml.safe_load(f).get("packages", [])
+          if any(p.get("name") == name for p in packages):
+              sys.exit(f"::error::{name} 仍在 packages.yml 中，请先删除该条目再执行移除")
+          EOF
+
+      - name: Delete package files from R2
+        env:
+          PACKAGE_NAME: ${{ inputs.package-name }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_S3_ENDPOINT: ${{ secrets.AWS_ENDPOINT }}
+        run: |
+          pip install --quiet boto3
+          python3 - <<'EOF'
+          import os
+          import sys
+
+          sys.path.insert(0, ".")
+          from lib.version import parse_package_filename
+          import boto3
+
+          name = os.environ["PACKAGE_NAME"]
+          bucket = os.environ["AWS_S3_BUCKET"]
+          client = boto3.client(
+              "s3",
+              aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+              aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+              endpoint_url=os.environ["AWS_S3_ENDPOINT"],
+          )
+
+          targets = []
+          paginator = client.get_paginator("list_objects_v2")
+          for page in paginator.paginate(Bucket=bucket, Prefix="packages/"):
+              for obj in page.get("Contents", []):
+                  filename = obj["Key"].split("/", 1)[1]
+                  base = filename[:-4] if filename.endswith(".sig") else filename
+                  parsed = parse_package_filename(base)
+                  if parsed and parsed[0] == name:
+                      targets.append(obj["Key"])
+
+          if not targets:
+              print(f"::warning::R2 中未找到 {name} 的包文件，跳过删除")
+          else:
+              for i in range(0, len(targets), 1000):
+                  batch = targets[i:i + 1000]
+                  client.delete_objects(
+                      Bucket=bucket,
+                      Delete={"Objects": [{"Key": k} for k in batch], "Quiet": True},
+                  )
+              for key in targets:
+                  print(f"Deleted: {key}")
+          print(f"共删除 {len(targets)} 个对象")
+          EOF
+
+      - name: Download remaining packages from R2
+        uses: ./.github/download-r2-action
+        with:
+          aws-bucket: ${{ secrets.AWS_BUCKET }}
+          aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
+          skip-package: ${{ inputs.package-name }}
+
+      - name: Generate pacman repo database
+        uses: ./.github/generator_database
+        with:
+          database: devcxl
+          path: ./repo
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Verify package removed from database
+        env:
+          PACKAGE_NAME: ${{ inputs.package-name }}
+        run: |
+          # 版本号以数字开头，用 -[0-9] 界定，避免把同前缀的其它包（如 foo 与 foo-bar）误判
+          if tar -tzf ./repo/devcxl.db.tar.gz | grep -qE "^${PACKAGE_NAME}-[0-9]"; then
+            echo "::error::${PACKAGE_NAME} 仍存在于重建后的数据库，已中止上传" >&2
+            exit 1
+          fi
+          echo "✅ 数据库已不包含 ${PACKAGE_NAME}"
+
+      - name: Upload to R2
+        uses: ./.github/upload-r2-action
+        with:
+          aws-bucket: ${{ secrets.AWS_BUCKET }}
+          aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
+          source-dir: ./repo
+
+      - name: Clean old package versions in R2
+        uses: ./.github/clean-old-packages-action
+        with:
+          aws-bucket: ${{ secrets.AWS_BUCKET }}
+          aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-endpoint: ${{ secrets.AWS_ENDPOINT }}
+
+      - name: Summary
+        env:
+          PACKAGE_NAME: ${{ inputs.package-name }}
+        run: |
+          echo "## 🗑️ Package Removed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 包名: \`$PACKAGE_NAME\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- R2 包文件与签名已删除" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 仓库数据库已用剩余包重建、签名并上传" >> "$GITHUB_STEP_SUMMARY"
