@@ -119,6 +119,10 @@ packages:
     url: https://aur.archlinux.org/netease-cloud-music-gtk4.git
     allowed-source-patterns:
       - https://github.com/gmg137/netease-cloud-music-gtk/*
+  - name: grok-bot-bin
+    url: https://aur.archlinux.org/grok-bot-bin.git
+    allowed-source-patterns:
+      - https://downloads.cursor.com/*
 
 
 
