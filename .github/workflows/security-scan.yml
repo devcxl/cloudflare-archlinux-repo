@@ -253,7 +253,7 @@ jobs:
           EOF
           )
 
-          pi --model "opencode-go/$AI_MODEL" -p "$PROMPT" --mode json
+          pi --model "opencode-go/$AI_MODEL" --approve -p "$PROMPT" < /dev/null
 
           # pi 在上游返回 5xx（如模型下线）时退出码仍为 0，这里显式校验产物，
           # 避免把「模型不可用」暴露成后续步骤的「报告缺失」而掩盖真实原因。
