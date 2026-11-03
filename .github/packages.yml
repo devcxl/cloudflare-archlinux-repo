@@ -121,7 +121,9 @@ packages:
     url: https://aur.archlinux.org/chatgpt-desktop.git
     allowed-source-patterns:
       - https://persistent.oaistatic.com/codex-app-prod/*
-
-
-
+  - name: cursor-bin
+    url: https://aur.archlinux.org/cursor-bin.git
+    allowed-source-patterns:
+      - https://downloads.cursor.com/production/*
+      - https://gitlab.archlinux.org/archlinux/packaging/packages/code/-/raw/main/code.*
 
