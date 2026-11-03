@@ -4,6 +4,14 @@ function isPackageArtifact(pathname) {
   return PACKAGE_ARTIFACT_PATTERN.test(pathname)
 }
 
+// 候选 key：优先原始路径，包产物再回退到 packages/ 前缀（兼容历史存储布局）。
+function candidateKeys(key) {
+  if (isPackageArtifact(key) && !key.startsWith('packages/')) {
+    return [key, `packages/${key}`]
+  }
+  return [key]
+}
+
 // 解析 HTTP Range 头，返回 { start, end, length } 或 null（非法/不支持的范围）。
 // 仅支持单段范围；支持 `bytes=N-`（开放结尾）与 `bytes=-N`（后缀范围）。
 // 多段范围（含逗号）与无法解析的形式一律视为非法，交由调用方返回 416。
@@ -36,6 +44,33 @@ function parseRange(range, objectSize) {
   return { start, end, length: end - start + 1 }
 }
 
+function responseHeaders(object, extra) {
+  return {
+    'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
+    'Cache-Control': 'public, max-age=3600',
+    'Accept-Ranges': 'bytes',
+    ...extra,
+  }
+}
+
+// Range 请求需要先拿到完整对象大小才能校验范围并拼出 Content-Range；
+// R2 的 range 选项交由存储层切片，body 是 ReadableStream，不能在 Worker 侧 slice。
+async function resolveObject(env, key) {
+  for (const candidate of candidateKeys(key)) {
+    const head = await env.ARCH_REPO.head(candidate)
+    if (head) return { key: candidate, size: head.size }
+  }
+  return null
+}
+
+async function readObject(env, key) {
+  for (const candidate of candidateKeys(key)) {
+    const object = await env.ARCH_REPO.get(candidate)
+    if (object) return object
+  }
+  return null
+}
+
 export default {
   async fetch(request, env) {
     let key
@@ -46,65 +81,68 @@ export default {
       return new Response('Bad Request', { status: 400 })
     }
 
-    let object
+    const range = request.headers.get('Range')
+
+    if (!range) {
+      let object
+      try {
+        object = await readObject(env, key)
+      } catch {
+        return new Response('Bad Gateway', { status: 502 })
+      }
+
+      if (!object) {
+        return new Response('Not found', { status: 404 })
+      }
+
+      return new Response(object.body, {
+        headers: responseHeaders(object, {
+          'Content-Length': object.size.toString(),
+        }),
+      })
+    }
+
+    let resolved
     try {
-      object = await env.ARCH_REPO.get(key)
+      resolved = await resolveObject(env, key)
     } catch {
       return new Response('Bad Gateway', { status: 502 })
     }
 
-    if (!object && isPackageArtifact(key) && !key.startsWith('packages/')) {
-      try {
-        object = await env.ARCH_REPO.get(`packages/${key}`)
-      } catch {
-        return new Response('Bad Gateway', { status: 502 })
-      }
-    }
-
-    if (!object) {
+    if (!resolved) {
       return new Response('Not found', { status: 404 })
     }
 
-    const objectSize = object.size
-    const range = request.headers.get('Range')
-
-    if (range) {
-      const parsed = parseRange(range, objectSize)
-      if (!parsed) {
-        return new Response('Range Not Satisfiable', {
-          status: 416,
-          headers: { 'Content-Range': `bytes */${objectSize}` },
-        })
-      }
-
-      const { start, end, length } = parsed
-
-      let rangeBody
-      try {
-        rangeBody = await object.body.slice(start, end + 1)
-      } catch {
-        return new Response('Bad Gateway', { status: 502 })
-      }
-
-      return new Response(rangeBody, {
-        status: 206,
+    const parsed = parseRange(range, resolved.size)
+    if (!parsed) {
+      return new Response('Range Not Satisfiable', {
+        status: 416,
         headers: {
-          'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
-          'Cache-Control': 'public, max-age=3600',
-          'Content-Range': `bytes ${start}-${end}/${objectSize}`,
-          'Content-Length': length.toString(),
+          'Content-Range': `bytes */${resolved.size}`,
           'Accept-Ranges': 'bytes',
         },
       })
     }
 
+    const { start, end, length } = parsed
+
+    let object
+    try {
+      object = await env.ARCH_REPO.get(resolved.key, { range: { offset: start, length } })
+    } catch {
+      return new Response('Bad Gateway', { status: 502 })
+    }
+
+    if (!object?.body) {
+      return new Response('Bad Gateway', { status: 502 })
+    }
+
     return new Response(object.body, {
-      headers: {
-        'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
-        'Cache-Control': 'public, max-age=3600',
-        'Content-Length': objectSize.toString(),
-        'Accept-Ranges': 'bytes',
-      },
+      status: 206,
+      headers: responseHeaders(object, {
+        'Content-Range': `bytes ${start}-${end}/${resolved.size}`,
+        'Content-Length': length.toString(),
+      }),
     })
   },
 }
