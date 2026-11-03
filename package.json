@@ -19,6 +19,6 @@
     "dev": "wrangler dev index.js --remote"
   },
   "dependencies": {
-    "wrangler": "^4.14.1"
+    "wrangler": "^4.156.2"
   }
 }

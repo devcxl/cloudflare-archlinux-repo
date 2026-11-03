@@ -28,7 +28,7 @@ jobs:
     outputs:
       status: ${{ job.status }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Clone AUR source
         env:
@@ -57,8 +57,10 @@ jobs:
           cd "${{ env.SOURCE_DIR }}"
           gitleaks detect --no-git --source=. --verbose --redact --exit-code 1
 
+      # semgrep/semgrep-action 上游已归档（2024-04），无新版本可升级；
+      # 如需继续维护，后续可迁移到 semgrep 官方 CLI / Docker 镜像。
       - name: Semgrep — SAST scan
-        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: auto
         continue-on-error: false
@@ -110,7 +112,7 @@ jobs:
           done
 
       - name: Set up Node.js for Pi Agent
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
 
@@ -264,7 +266,7 @@ jobs:
 
       - name: Upload AI review report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ai-review-report-${{ inputs.package-name }}
           path: ${{ runner.temp }}/ai-review-report.md
@@ -320,7 +322,7 @@ jobs:
     outputs:
       status: ${{ job.status }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Clone AUR source
         env:
           SOURCE_URL: ${{ inputs.source-url }}
@@ -328,7 +330,7 @@ jobs:
           bash .github/clone-source-with-retry.sh \
             "$SOURCE_URL" "$SOURCE_DIR"
       - name: Trivy — filesystem vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: ${{ env.SOURCE_DIR }}
@@ -340,7 +342,7 @@ jobs:
 
       - name: Upload Trivy SARIF results
         if: always()
-        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28
+        uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
         with:
           sarif_file: trivy-results.sarif
           category: trivy-fs

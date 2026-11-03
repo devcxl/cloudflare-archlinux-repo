@@ -1,0 +1,75 @@
+# Dependabot 依赖更新配置（对应 issue #21）
+#
+# 策略：
+#   - 每周一 09:00 (Asia/Shanghai) 检查一次，产出的 PR 由维护者审查并跑测试后手动合并；
+#   - 不开启自动合并（Dependabot 自身不会 auto-merge，需在仓库设置里另行开启）；
+#   - 同一生态的更新合并为一个 PR，减少噪音。
+version: 2
+
+updates:
+  # 1) GitHub Actions
+  # workflow 中的第三方 action 全部按 commit SHA 固定并保留 `# vX.Y.Z` 注释，
+  # Dependabot 会同时更新 SHA 与注释，兼顾供应链安全（防 tag 被改写）与可维护性。
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    commit-message:
+      prefix: "ci(deps)"
+    open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # 2) npm：Cloudflare Worker 依赖（package.json / package-lock.json）
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    commit-message:
+      prefix: "chore(deps)"
+    open-pull-requests-limit: 5
+
+  # 3) pip：R2 上传/下载等 Python 脚本依赖。
+  # 注意：requirements.txt 当前未固定版本，Dependabot 只在存在版本约束时才产出更新 PR。
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    commit-message:
+      prefix: "chore(deps)"
+    open-pull-requests-limit: 5
+
+  # 4) Docker：组合 Action 使用的构建镜像
+  # 基础镜像为 archlinux:latest（浮动 tag），Dependabot 以 digest 更新的方式提 PR。
+  - package-ecosystem: "docker"
+    directory: "/.github/build-aur-action"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    commit-message:
+      prefix: "chore(docker)"
+    open-pull-requests-limit: 1
+
+  - package-ecosystem: "docker"
+    directory: "/.github/generator_database"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    commit-message:
+      prefix: "chore(docker)"
+    open-pull-requests-limit: 1
